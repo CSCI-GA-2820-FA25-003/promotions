@@ -22,6 +22,7 @@ Promotion API Service Test Suite
 import os
 import logging
 from unittest import TestCase
+from unittest.mock import patch
 from wsgi import app
 from service.common import status
 from service.models import Promotion, db
@@ -155,6 +156,72 @@ class TestPromotionService(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.get_json()
         self.assertEqual(len(data), 5)
+
+    # ----------------------------------------------------------
+    # TEST QUERY
+    # ----------------------------------------------------------
+    def test_query_by_name(self):
+        """It should Query Promotions by name"""
+        promotions = self._create_promotions(5)
+        test_name = promotions[0].name
+        name_count = len([promo for promo in promotions if promo.name == test_name])
+        response = self.client.get(BASE_URL, query_string=f"number={test_name}")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.get_json()
+        self.assertEqual(len(data), name_count)
+        for promotion in data:
+            self.assertEqual(promotion["name"], test_name)
+
+    def test_query_by_product(self):
+        """It should Query Promotions by product"""
+        promotions = self._create_promotions(5)
+        test_product = promotions[0].product_id
+        response = self.client.get(BASE_URL, query_string=f"product={test_product}")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.get_json()
+        # Should return promotions for this product
+        for promotion in data:
+            self.assertEqual(promotion["product_id"], test_product)
+
+    def test_query_by_id(self):
+        """It should Query Promotions by id"""
+        promotions = self._create_promotions(3)
+        test_id = promotions[0].id
+        response = self.client.get(BASE_URL, query_string=f"id={test_id}")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.get_json()
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]["id"], test_id)
+
+    def test_query_empty_results(self):
+        """It should return empty list when no promotions match query"""
+        # Test query when no promotions exist
+        response = self.client.get(BASE_URL, query_string="number=nonexistent")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.get_json()
+        self.assertEqual(len(data), 0)
+
+    # ----------------------------------------------------------
+    # TEST UPDATE
+    # ----------------------------------------------------------
+    def test_update_promotion(self):
+        """It should Update an existing Promotion"""
+        # create a promotion
+        test_promotion = self._create_promotions(1)[0]
+
+        # update it
+        test_promotion.name = "Updated Name"
+        response = self.client.put(f"{BASE_URL}/{test_promotion.id}", json=test_promotion.serialize())
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        updated_promotion = response.get_json()
+        self.assertEqual(updated_promotion["name"], "Updated Name")
+
+    def test_update_promotion_not_found(self):
+        """It should not Update a Promotion thats not found"""
+        test_promotion = PromotionFactory()
+        response = self.client.put(f"{BASE_URL}/0", json=test_promotion.serialize())
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
     # ----------------------------------------------------------
     # TEST DELETE
     # ----------------------------------------------------------
@@ -219,4 +286,42 @@ class TestSadPaths(TestCase):
         test_promotion = promotion.serialize()
         test_promotion["product_id"] = "not_a_number"  # invalid product_id
         response = self.client.post(BASE_URL, json=test_promotion)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_update_promotion_bad_data(self):
+        """It should not Update a Promotion with bad data"""
+        # First create a promotion
+        test_promotion = PromotionFactory()
+        create_response = self.client.post(BASE_URL, json=test_promotion.serialize())
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        promotion_id = create_response.get_json()["id"]
+
+        # Then try to update it with bad data
+        test_promotion.value = "bad_value"
+        response = self.client.put(f"{BASE_URL}/{promotion_id}", json=test_promotion.serialize())
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_update_promotion_no_content_type(self):
+        """It should not Update a Promotion with no content type"""
+        # First create a promotion
+        test_promotion = PromotionFactory()
+        create_response = self.client.post(BASE_URL, json=test_promotion.serialize())
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        promotion_id = create_response.get_json()["id"]
+
+        # Then try to update without content type
+        response = self.client.put(f"{BASE_URL}/{promotion_id}")
+        self.assertEqual(response.status_code, status.HTTP_415_UNSUPPORTED_MEDIA_TYPE)
+
+    def test_method_not_allowed(self):
+        """It should not allow unsupported HTTP methods"""
+        response = self.client.patch(BASE_URL)
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    @patch('service.routes.Promotion.find_by_name')
+    def test_internal_server_error_simulation(self, mock_find):
+        """It should handle internal server errors"""
+        from service.models import DataValidationError  # pylint: disable=import-outside-toplevel
+        mock_find.side_effect = DataValidationError("Simulated error")
+        response = self.client.get(BASE_URL, query_string="number=test")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

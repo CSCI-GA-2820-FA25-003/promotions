@@ -5,23 +5,54 @@
   <meta charset="utf-8" />
   <title>{{ title or "Promotions Admin" }}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Prevent stale static assets in headless browser caches -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <style>
     :root { --fg:#222; --muted:#666; --bd:#e5e5e5; --pad:16px; }
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-           color: var(--fg); margin: 24px; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; color: var(--fg); margin: 24px; }
     header { margin-bottom: 8px; }
     h1 { font-size: 1.6rem; margin: 0 0 4px; }
     p.muted { color: var(--muted); margin-top: 4px; }
     main { border:1px solid var(--bd); border-radius: 8px; padding: var(--pad); }
+    section { border: 1px solid var(--bd); padding: 12px; border-radius: 8px; margin: 12px 0; }
+    label { display: inline-block; min-width: 140px; }
+    input, select { margin: 4px 0 8px 0; padding: 6px; width: 260px; }
+    button { padding: 6px 12px; cursor: pointer; }
+    table { border-collapse: collapse; width: 100%; margin-top: 12px; }
+    th, td { border: 1px solid var(--bd); padding: 6px 8px; text-align: left; }
+    #status { margin: 8px 0 12px; color: var(--muted); }
   </style>
 </head>
 <body>
   <header>
     <h1 id="title">{{ title or "Promotions Admin" }}</h1>
-    <p class="muted">Administrator console – UI skeleton for R4‑01</p>
+    <p class="muted">Administrator console – Create/List will expand in R4‑03…R4‑09</p>
   </header>
   <main>
-    <p>This is the admin UI skeleton. R4‑03…R4‑09 will add Create/Read/Update/Delete/List/Query/Action sections here.</p>
+    <div id="status">Ready.</div>
+    <section id="sec-create">
+      <h2>Create</h2>
+      <div><label for="c-name">name</label><input id="c-name" /></div>
+      <div><label for="c-type">promotion_type</label><input id="c-type" /></div>
+      <div><label for="c-value">value</label><input id="c-value" type="number" /></div>
+      <div><label for="c-product">product_id</label><input id="c-product" type="number" /></div>
+      <div><label for="c-start">start_date</label><input id="c-start" placeholder="YYYY-MM-DD" /></div>
+      <div><label for="c-end">end_date</label><input id="c-end" placeholder="YYYY-MM-DD" /></div>
+      <button id="btn-create">Create</button>
+    </section>
+    <section id="sec-results">
+      <h2>Results</h2>
+      <table id="results">
+        <thead>
+          <tr><th>id</th><th>name</th><th>promotion_type</th><th>value</th><th>product_id</th><th>start_date</th><th>end_date</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
   </main>
+  <!-- Always fetch the Blueprint static JS (not app-level /static) and bust cache -->
+  <script src="{{ url_for('ui.static', filename='js/app.js') }}?v={{ ui_version }}"></script>
 </body>
 </html>

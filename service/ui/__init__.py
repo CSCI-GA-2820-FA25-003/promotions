@@ -7,18 +7,18 @@ not modify or replace the existing REST API routes.
 
 from flask import Blueprint, render_template
 
-
-# Serve templates from service/templates and static assets from service/static
+# Serve templates from service/templates and static assets from service/static.
+# Expose static files under /ui/static to avoid collisions with app-level /static.
 ui_bp = Blueprint(
     "ui",
     __name__,
     template_folder="../templates",
     static_folder="../static",
+    static_url_path="/ui/static",
 )
-
 
 @ui_bp.route("/ui", methods=["GET"])
 def index():
     """Admin UI entry point (skeleton page)."""
-    # The title is used by tests to assert that the page renders.
-    return render_template("index.html", title="Promotions Admin")
+    # ui_version is used to cache-bust the static JS in the template.
+    return render_template("index.html", title="Promotions Admin", ui_version="r403-fix2")

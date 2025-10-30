@@ -18,11 +18,6 @@
 Promotion API Server Tests
 """
 
-# - missing-function-docstring: 
-# - attribute-defined-outside-init: pytest 
-# - invalid-name: 
-# - too-many-public-methods: 
-# pylint: disable=missing-function-docstring,attribute-defined-outside-init,invalid-name,too-many-public-methods
 
 from datetime import date, timedelta
 

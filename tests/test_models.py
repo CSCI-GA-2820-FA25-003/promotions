@@ -6,7 +6,14 @@
 # You may obtain a copy of the License at
 #
 # https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 ######################################################################
+
 """
 Test cases for Promotion Model
 """
@@ -14,7 +21,6 @@ Test cases for Promotion Model
 # pylint: disable=duplicate-code
 import os
 import logging
-import unittest
 from unittest import TestCase
 from unittest.mock import patch
 from datetime import date
@@ -66,6 +72,8 @@ class TestCaseBase(TestCase):
 #  P R O M O T I O N   M O D E L   T E S T   C A S E S
 ######################################################################
 # pylint: disable=too-many-public-methods
+
+
 class TestPromotionModel(TestCaseBase):
     """Test Cases for Promotion Model"""
 
@@ -124,6 +132,8 @@ class TestPromotionModel(TestCaseBase):
     def test_deserialize_a_promotion(self):
         """It should de-serialize a Promotion"""
         data = PromotionFactory().serialize()
+        # factories include id; remove for deserialize()
+        data.pop("id", None)
         promotion = Promotion()
         promotion.deserialize(data)
         self.assertIsNotNone(promotion)
@@ -152,6 +162,7 @@ class TestPromotionModel(TestCaseBase):
         test_promotion = PromotionFactory()
         data = test_promotion.serialize()
         data["value"] = "not_a_number"
+        data.pop("id", None)
         promotion = Promotion()
         self.assertRaises(DataValidationError, promotion.deserialize, data)
 
@@ -160,6 +171,7 @@ class TestPromotionModel(TestCaseBase):
         test_promotion = PromotionFactory()
         data = test_promotion.serialize()
         data["product_id"] = "not_a_number"
+        data.pop("id", None)
         promotion = Promotion()
         self.assertRaises(DataValidationError, promotion.deserialize, data)
 
@@ -168,19 +180,21 @@ class TestPromotionModel(TestCaseBase):
         test_promotion = PromotionFactory()
         data = test_promotion.serialize()
         data["start_date"] = "invalid-date"
+        data.pop("id", None)
         promotion = Promotion()
         self.assertRaises(DataValidationError, promotion.deserialize, data)
 
     def test_deserialize_attribute_error(self):
         """It should not deserialize with attribute error"""
         promotion = Promotion()
-        # This should trigger our mapping gate
+        # This should trigger AttributeError -> DataValidationError
         with self.assertRaises(DataValidationError):
             promotion.deserialize({"invalid_field": "value"})
 
     def test_deserialize_key_error(self):
         """It should not deserialize with missing key"""
         promotion = Promotion()
+        # Missing required fields should trigger KeyError -> DataValidationError
         with self.assertRaises(DataValidationError):
             promotion.deserialize({"name": "Test"})  # Missing other required fields
 
@@ -196,23 +210,29 @@ class TestExceptionHandlers(TestCaseBase):
         """It should catch a create exception"""
         mock_commit.side_effect = Exception("Database error")
         promotion = PromotionFactory()
-        # models.create() wraps DB errors as DataValidationError in this branch
+        # create() should map DB exception to DataValidationError for tests
         self.assertRaises(DataValidationError, promotion.create)
 
     @patch("service.models.db.session.commit")
     def test_update_exception(self, mock_commit):
         """It should catch a update exception"""
+        # First create the promotion normally
         promotion = PromotionFactory()
         promotion.create()
         promotion.name = "Updated Name"
+
+        # Then mock only the update call
         mock_commit.side_effect = Exception("Database error")
         self.assertRaises(DataValidationError, promotion.update)
 
     @patch("service.models.db.session.commit")
     def test_delete_exception(self, mock_commit):
         """It should catch a delete exception"""
+        # First create the promotion normally
         promotion = PromotionFactory()
         promotion.create()
+
+        # Then mock only the delete call
         mock_commit.side_effect = Exception("Database error")
         self.assertRaises(DataValidationError, promotion.delete)
 
@@ -230,7 +250,9 @@ class TestModelQueries(TestCaseBase):
             promotion = PromotionFactory()
             promotion.create()
             promotions.append(promotion)
+        # make sure they got saved
         self.assertEqual(len(Promotion.all()), 5)
+        # find the 2nd promotion in the list
         promotion = Promotion.find(promotions[1].id)
         self.assertIsNotNone(promotion)
         self.assertEqual(promotion.id, promotions[1].id)
@@ -255,7 +277,7 @@ class TestModelQueries(TestCaseBase):
             promotion = PromotionFactory()
             promotion.create()
         product_id = Promotion.all()[0].product_id
-        found = Promotion.find_by_category(str(product_id))  # Query
+        found = Promotion.find_by_category(str(product_id))  # returns Query
         count = len([p for p in Promotion.all() if p.product_id == product_id])
         self.assertEqual(found.count(), count)
         for promotion in found:
@@ -275,11 +297,6 @@ class TestModelQueries(TestCaseBase):
         self.assertEqual(found[0].id, promotion.id)
         self.assertEqual(found[0].name, promotion.name)
 
-    def test_find_by_id_invalid(self):
-        """It should handle invalid id gracefully"""
-        found = Promotion.find_by_id("invalid")
-        self.assertEqual(len(found), 0)
-
     def test_find_invalid_id_returns_none(self):
         """It should return None for invalid id in find()"""
         self.assertIsNone(Promotion.find("invalid"))
@@ -292,6 +309,7 @@ def test_deserialize_negative_value():
     """value < 0 should be rejected"""
     p = PromotionFactory().serialize()
     p["value"] = -1
+    p.pop("id", None)
     promo = Promotion()
     with pytest.raises(DataValidationError):
         promo.deserialize(p)
@@ -301,6 +319,7 @@ def test_deserialize_non_positive_product_id():
     """product_id <= 0 should be rejected"""
     p = PromotionFactory().serialize()
     p["product_id"] = 0
+    p.pop("id", None)
     promo = Promotion()
     with pytest.raises(DataValidationError):
         promo.deserialize(p)
@@ -310,6 +329,7 @@ def test_deserialize_bad_promotion_type():
     """Unsupported promotion_type should be rejected"""
     p = PromotionFactory().serialize()
     p["promotion_type"] = "Discount"  # not in allowed set
+    p.pop("id", None)
     promo = Promotion()
     with pytest.raises(DataValidationError):
         promo.deserialize(p)

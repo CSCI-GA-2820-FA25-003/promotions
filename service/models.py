@@ -6,12 +6,6 @@
 # You may obtain a copy of the License at
 #
 # https://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 ######################################################################
 
 """
@@ -53,10 +47,7 @@ class Promotion(db.Model):
         db.DateTime, default=db.func.now(), onupdate=db.func.now(), nullable=False
     )
 
-    # ---- Allowed promotion types ----
-    # 为了兼容现有测试/工厂数据，这里同时允许同义写法：
-    # - 固定金额/百分比的人类可读写法（"Percentage off", "Buy One Get One", "Fixed amount off"）
-    # - 以及简写/枚举风格（"AMOUNT_OFF", "BOGO"）
+    # Allowed types (covering factory + tests + enum-like codes)
     ALLOWED_PROMOTION_TYPES = {
         "AMOUNT_OFF",
         "Percentage off",
@@ -129,10 +120,10 @@ class Promotion(db.Model):
           - promotion_type must be one of ALLOWED_PROMOTION_TYPES
         """
         try:
-            # --- Required simple fields ---
+            # --- Required fields ---
             self.name = data["name"]
 
-            # --- promotion_type: enumerated allowed values (保持原样，不做大小写/规范化转换) ---
+            # promotion_type: enumerated allowed values (no normalization)
             ptype = data["promotion_type"]
             if not isinstance(ptype, str):
                 raise DataValidationError(
@@ -145,7 +136,7 @@ class Promotion(db.Model):
                 )
             self.promotion_type = ptype
 
-            # --- value: must be integer and >= 0 ---
+            # value: int and >= 0
             if not isinstance(data["value"], int):
                 raise DataValidationError(
                     "Invalid type for integer [value]: " + str(type(data["value"]))
@@ -154,7 +145,7 @@ class Promotion(db.Model):
                 raise DataValidationError("Invalid value: must be >= 0")
             self.value = data["value"]
 
-            # --- product_id: must be integer and > 0 ---
+            # product_id: int and > 0
             if not isinstance(data["product_id"], int):
                 raise DataValidationError(
                     "Invalid type for integer [product_id]: "
@@ -164,7 +155,7 @@ class Promotion(db.Model):
                 raise DataValidationError("Invalid product_id: must be > 0")
             self.product_id = data["product_id"]
 
-            # --- dates: ISO-8601 strings -> date ---
+            # dates: ISO-8601
             self.start_date = date.fromisoformat(data["start_date"])
             self.end_date = date.fromisoformat(data["end_date"])
 
@@ -196,7 +187,11 @@ class Promotion(db.Model):
     def find(cls, by_id):
         """Finds a Promotion by its ID (single object or None)."""
         logger.info("Processing lookup for id %s ...", by_id)
-        return cls.query.session.get(cls, by_id)
+        try:
+            pid = int(by_id)
+        except (TypeError, ValueError):
+            return None
+        return cls.query.session.get(cls, pid)
 
     @classmethod
     def find_by_name(cls, name):

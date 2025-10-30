@@ -6,12 +6,6 @@
 # You may obtain a copy of the License at
 #
 # https://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 ######################################################################
 
 """
@@ -24,6 +18,7 @@ import logging
 from unittest import TestCase
 from unittest.mock import patch
 from datetime import date
+
 import pytest
 
 from wsgi import app
@@ -112,7 +107,7 @@ class TestPromotionModel(TestCaseBase):
         """It should serialize a Promotion"""
         promotion = PromotionFactory()
         data = promotion.serialize()
-        self.assertNotEqual(data, None)
+        self.assertIsNotNone(data)
         self.assertIn("id", data)
         self.assertEqual(data["id"], promotion.id)
         self.assertIn("name", data)
@@ -133,8 +128,8 @@ class TestPromotionModel(TestCaseBase):
         data = PromotionFactory().serialize()
         promotion = Promotion()
         promotion.deserialize(data)
-        self.assertNotEqual(promotion, None)
-        self.assertEqual(promotion.id, None)
+        self.assertIsNotNone(promotion)
+        self.assertIsNone(promotion.id)
         self.assertEqual(promotion.name, data["name"])
         self.assertEqual(promotion.promotion_type, data["promotion_type"])
         self.assertEqual(promotion.value, data["value"])
@@ -258,7 +253,7 @@ class TestModelQueries(TestCaseBase):
             promotion = PromotionFactory()
             promotion.create()
         name = Promotion.all()[0].name
-        found = Promotion.find_by_name(name)
+        found = Promotion.find_by_name(name)  # returns Query
         count = len([p for p in Promotion.all() if p.name == name])
         self.assertEqual(found.count(), count)
         for promotion in found:
@@ -270,7 +265,7 @@ class TestModelQueries(TestCaseBase):
             promotion = PromotionFactory()
             promotion.create()
         product_id = Promotion.all()[0].product_id
-        found = Promotion.find_by_category(str(product_id))
+        found = Promotion.find_by_category(str(product_id))  # returns Query
         count = len([p for p in Promotion.all() if p.product_id == product_id])
         self.assertEqual(found.count(), count)
         for promotion in found:
@@ -299,7 +294,6 @@ class TestModelQueries(TestCaseBase):
 ######################################################################
 #  A D D E D   F O R   I S S U E   #57
 ######################################################################
-
 
 def test_deserialize_negative_value():
     """value < 0 should be rejected"""

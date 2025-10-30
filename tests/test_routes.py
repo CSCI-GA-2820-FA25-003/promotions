@@ -23,7 +23,6 @@ from datetime import date, timedelta
 
 from wsgi import app
 from service.common import status
-from tests.factories import PromotionFactory
 
 BASE_URL = "/promotions"
 
@@ -190,14 +189,12 @@ class TestPromotionService(unittest.TestCase):
             resp = self.client.get(f"{BASE_URL}?active={truthy}")
             self.assertEqual(resp.status_code, status.HTTP_200_OK)
             data = resp.get_json()
-            # Only currently active promotions should be returned
             self.assertTrue(all(p["start_date"] <= today.isoformat() <= p["end_date"] for p in data))
 
         for falsy in ["false", "False", "0", "NO", " no "]:
             resp = self.client.get(f"{BASE_URL}?active={falsy}")
             self.assertEqual(resp.status_code, status.HTTP_200_OK)
             data = resp.get_json()
-            # None of the returned items should be active today
             self.assertTrue(all(not (p["start_date"] <= today.isoformat() <= p["end_date"]) for p in data))
 
     def test_query_active_returns_only_current_promotions(self):
@@ -278,10 +275,7 @@ class TestPromotionService(unittest.TestCase):
 
     def test_unhandled_exception_500(self):
         """It should return JSON 500 when an unhandled exception occurs"""
-        # Trigger the generic 500 error handler with a path the app maps to 500 in tests (if present)
-        # If no dedicated trigger exists, simulate by calling /promotions with an impossible query param
         resp = self.client.get(f"{BASE_URL}?active=__force_500__")
-        # Some codebases return 400 for this; assert either 400 or 500 to avoid flakiness
         self.assertIn(resp.status_code, (status.HTTP_500_INTERNAL_SERVER_ERROR, status.HTTP_400_BAD_REQUEST))
 
 

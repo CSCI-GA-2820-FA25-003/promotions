@@ -25,7 +25,6 @@ from flask_api import status
 
 from wsgi import app
 from service.models import Promotion, db
-from tests.factories import PromotionFactory
 
 BASE_URL = "/promotions"
 
@@ -85,7 +84,6 @@ class TestPromotionService(TestCase):
         """It should call the home page"""
         resp = self.client.get("/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        # 返回 HTML/文本即可，不强制具体内容
 
     def test_health(self):
         """GET /health returns OK"""
@@ -242,12 +240,13 @@ class TestPromotionService(TestCase):
             resp = self.client.get(f"{BASE_URL}?active={truthy}")
             self.assertEqual(resp.status_code, status.HTTP_200_OK)
             data = resp.get_json()
-            self.assertTrue(all(d["start_date"] <= date.today().isoformat() <= d["end_date"] for d in data))
+            self.assertTrue(
+                all(d["start_date"] <= date.today().isoformat() <= d["end_date"] for d in data)
+            )
 
         for falsy in ["false", "False", "0", "NO", " no "]:
             resp = self.client.get(f"{BASE_URL}?active={falsy}")
             self.assertEqual(resp.status_code, status.HTTP_200_OK)
-            # 返回“非当前有效”的列表，长度不作强断言
 
     def test_query_active_returns_only_current_promotions(self):
         """It should return only promotions that are active today when ?active=true"""
@@ -280,7 +279,9 @@ class TestPromotionService(TestCase):
         resp = self.client.get(f"{BASE_URL}?active=true")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         data = resp.get_json()
-        self.assertTrue(all(d["start_date"] <= date.today().isoformat() <= d["end_date"] for d in data))
+        self.assertTrue(
+            all(d["start_date"] <= date.today().isoformat() <= d["end_date"] for d in data)
+        )
 
     def test_query_no_matches(self):
         """It should return 200 and empty list when no promotions match"""
@@ -300,7 +301,6 @@ class TestPromotionService(TestCase):
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         data = resp.get_json()
         self.assertTrue(isinstance(data, list))
-        # 只断言筛出的每一条 promotion_type 都是 BOGO
         self.assertTrue(all(d["promotion_type"] == "BOGO" for d in data))
 
     def test_query_promotion_type_blank(self):
@@ -320,7 +320,6 @@ class TestPromotionService(TestCase):
         """It should return JSON 405 for wrong method on /promotions (PATCH not allowed)"""
         resp = self.client.patch(BASE_URL, json={})
         self.assertEqual(resp.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
-        # 兼容 Flask 默认错误信息格式
         msg = resp.get_json().get("message", "")
         self.assertIn("Method Not Allowed", msg)
 
@@ -331,12 +330,15 @@ class TestPromotionService(TestCase):
         pid = p.get_json()["id"]
         resp = self.client.post(f"{BASE_URL}/{pid}", json={})
         self.assertEqual(resp.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
-        # 兼容 Flask 默认错误信息格式
         msg = resp.get_json().get("message", "")
         self.assertIn("Method Not Allowed", msg)
 
     def test_internal_server_error_path(self):
         """It should return JSON 500 when an unhandled exception occurs（通过非法 id 触发某些实现中的异常路径）"""
-        # 如果你的实现不会抛 500，可保持通过（不强制）
         resp = self.client.get(f"{BASE_URL}?id=not-an-int")
-        self.assertIn(resp.status_code, (status.HTTP_200_OK, status.HTTP_400_BAD_REQUEST, status.HTTP_500_INTERNAL_SERVER_ERROR))
+        allowed = (
+            status.HTTP_200_OK,
+            status.HTTP_400_BAD_REQUEST,
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+        self.assertIn(resp.status_code, allowed)

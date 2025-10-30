@@ -333,3 +333,60 @@ def test_deserialize_bad_promotion_type():
     promo = Promotion()
     with pytest.raises(DataValidationError):
         promo.deserialize(p)
+        # ---------- Extra coverage for model helpers ----------
+
+from datetime import date, timedelta
+from service.models import Promotion
+from tests.factories import PromotionFactory
+
+
+def test_model_find_active_helper_direct():
+    """直接调用 find_active() 覆盖模型层活跃查询"""
+    today = date.today()
+
+    active = PromotionFactory(
+        start_date=today - timedelta(days=1),
+        end_date=today + timedelta(days=1),
+        promotion_type="AMOUNT_OFF",
+        product_id=91001,
+    )
+    active.create()
+
+    expired = PromotionFactory(
+        start_date=today - timedelta(days=10),
+        end_date=today - timedelta(days=5),
+        promotion_type="BOGO",
+        product_id=91002,
+    )
+    expired.create()
+
+    future = PromotionFactory(
+        start_date=today + timedelta(days=2),
+        end_date=today + timedelta(days=3),
+        promotion_type="AMOUNT_OFF",
+        product_id=91003,
+    )
+    future.create()
+
+    found = Promotion.find_active()
+    assert isinstance(found, list)
+    ids = [p.id for p in found]
+    assert active.id in ids
+    assert expired.id not in ids and future.id not in ids
+
+
+def test_model_find_by_product_id_and_type_helpers_direct():
+    """直接调用 find_by_product_id / find_by_promotion_type 提升覆盖率"""
+    p1 = PromotionFactory(promotion_type="AMOUNT_OFF", product_id=92001)
+    p1.create()
+    p2 = PromotionFactory(promotion_type="BOGO", product_id=92002)
+    p2.create()
+
+    by_pid = Promotion.find_by_product_id(92001)
+    assert isinstance(by_pid, list)
+    assert len(by_pid) == 1 and by_pid[0].id == p1.id
+
+    by_type = Promotion.find_by_promotion_type("BOGO")
+    assert isinstance(by_type, list)
+    assert any(p.id == p2.id for p in by_type)
+

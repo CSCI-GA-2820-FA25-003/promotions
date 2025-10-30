@@ -7,7 +7,6 @@
 #
 # https://www.apache.org/licenses/LICENSE-2.0
 ######################################################################
-
 """
 Test cases for Promotion Model
 """
@@ -15,6 +14,7 @@ Test cases for Promotion Model
 # pylint: disable=duplicate-code
 import os
 import logging
+import unittest
 from unittest import TestCase
 from unittest.mock import patch
 from datetime import date
@@ -66,8 +66,6 @@ class TestCaseBase(TestCase):
 #  P R O M O T I O N   M O D E L   T E S T   C A S E S
 ######################################################################
 # pylint: disable=too-many-public-methods
-
-
 class TestPromotionModel(TestCaseBase):
     """Test Cases for Promotion Model"""
 
@@ -176,14 +174,13 @@ class TestPromotionModel(TestCaseBase):
     def test_deserialize_attribute_error(self):
         """It should not deserialize with attribute error"""
         promotion = Promotion()
-        # This should trigger AttributeError -> DataValidationError
+        # This should trigger our mapping gate
         with self.assertRaises(DataValidationError):
             promotion.deserialize({"invalid_field": "value"})
 
     def test_deserialize_key_error(self):
         """It should not deserialize with missing key"""
         promotion = Promotion()
-        # Missing required fields should trigger KeyError -> DataValidationError
         with self.assertRaises(DataValidationError):
             promotion.deserialize({"name": "Test"})  # Missing other required fields
 
@@ -199,28 +196,23 @@ class TestExceptionHandlers(TestCaseBase):
         """It should catch a create exception"""
         mock_commit.side_effect = Exception("Database error")
         promotion = PromotionFactory()
+        # models.create() wraps DB errors as DataValidationError in this branch
         self.assertRaises(DataValidationError, promotion.create)
 
     @patch("service.models.db.session.commit")
     def test_update_exception(self, mock_commit):
         """It should catch a update exception"""
-        # First create the promotion normally
         promotion = PromotionFactory()
         promotion.create()
         promotion.name = "Updated Name"
-
-        # Then mock only the update call
         mock_commit.side_effect = Exception("Database error")
         self.assertRaises(DataValidationError, promotion.update)
 
     @patch("service.models.db.session.commit")
     def test_delete_exception(self, mock_commit):
         """It should catch a delete exception"""
-        # First create the promotion normally
         promotion = PromotionFactory()
         promotion.create()
-
-        # Then mock only the delete call
         mock_commit.side_effect = Exception("Database error")
         self.assertRaises(DataValidationError, promotion.delete)
 
@@ -238,9 +230,7 @@ class TestModelQueries(TestCaseBase):
             promotion = PromotionFactory()
             promotion.create()
             promotions.append(promotion)
-        # make sure they got saved
         self.assertEqual(len(Promotion.all()), 5)
-        # find the 2nd promotion in the list
         promotion = Promotion.find(promotions[1].id)
         self.assertIsNotNone(promotion)
         self.assertEqual(promotion.id, promotions[1].id)
@@ -265,11 +255,16 @@ class TestModelQueries(TestCaseBase):
             promotion = PromotionFactory()
             promotion.create()
         product_id = Promotion.all()[0].product_id
-        found = Promotion.find_by_category(str(product_id))  # returns Query
+        found = Promotion.find_by_category(str(product_id))  # Query
         count = len([p for p in Promotion.all() if p.product_id == product_id])
         self.assertEqual(found.count(), count)
         for promotion in found:
             self.assertEqual(promotion.product_id, product_id)
+
+    def test_find_by_category_invalid(self):
+        """It should handle invalid category gracefully"""
+        found = Promotion.find_by_category("invalid")
+        self.assertEqual(found.count(), 0)
 
     def test_find_by_id_method(self):
         """It should Find a Promotion by ID using find_by_id method"""
@@ -280,21 +275,19 @@ class TestModelQueries(TestCaseBase):
         self.assertEqual(found[0].id, promotion.id)
         self.assertEqual(found[0].name, promotion.name)
 
-    def test_find_by_category_invalid(self):
-        """It should handle invalid category gracefully"""
-        found = Promotion.find_by_category("invalid")
-        self.assertEqual(found.count(), 0)
-
     def test_find_by_id_invalid(self):
         """It should handle invalid id gracefully"""
         found = Promotion.find_by_id("invalid")
         self.assertEqual(len(found), 0)
 
+    def test_find_invalid_id_returns_none(self):
+        """It should return None for invalid id in find()"""
+        self.assertIsNone(Promotion.find("invalid"))
+
 
 ######################################################################
 #  A D D E D   F O R   I S S U E   #57
 ######################################################################
-
 def test_deserialize_negative_value():
     """value < 0 should be rejected"""
     p = PromotionFactory().serialize()
@@ -316,7 +309,7 @@ def test_deserialize_non_positive_product_id():
 def test_deserialize_bad_promotion_type():
     """Unsupported promotion_type should be rejected"""
     p = PromotionFactory().serialize()
-    p["promotion_type"] = "Discount"  # not in ALLOWED_PROMOTION_TYPES
+    p["promotion_type"] = "Discount"  # not in allowed set
     promo = Promotion()
     with pytest.raises(DataValidationError):
         promo.deserialize(p)

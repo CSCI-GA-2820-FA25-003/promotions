@@ -18,6 +18,12 @@
 Promotion API Server Tests
 """
 
+# - missing-function-docstring: 
+# - attribute-defined-outside-init: pytest 
+# - invalid-name: 
+# - too-many-public-methods: 
+# pylint: disable=missing-function-docstring,attribute-defined-outside-init,invalid-name,too-many-public-methods
+
 from datetime import date, timedelta
 
 from wsgi import app
@@ -41,20 +47,13 @@ def make_payload(**overrides) -> dict:
     return base
 
 
-######################################################################
-#  P O S T   T E S T S
-######################################################################
-
-
 class TestPromotionService:
     """Promotion API Server Tests"""
 
     def setup_method(self, _method):
         self.client = app.test_client()
 
-    ##################################################################
-    # CREATE
-    ##################################################################
+    # ---------- CREATE ----------
 
     def test_create_promotion(self):
         """It should Create a new Promotion"""
@@ -64,9 +63,7 @@ class TestPromotionService:
         new_json = resp.get_json()
         self.assertFields(new_json, required=True)
 
-    ##################################################################
-    # LIST / QUERY
-    ##################################################################
+    # ---------- LIST / QUERY ----------
 
     def test_query_by_promotion_type_returns_matches(self):
         """It should return only promotions with the given promotion_type (exact match)"""
@@ -163,9 +160,7 @@ class TestPromotionService:
         assert isinstance(data, list)
         assert len(data) >= 2
 
-    ##################################################################
-    # ACTIVE FILTER
-    ##################################################################
+    # ---------- ACTIVE FILTER ----------
 
     def test_active_query_invalid_values(self):
         """It should return 400 for invalid ?active= values"""
@@ -294,9 +289,7 @@ class TestPromotionService:
         assert resp2.status_code == status.HTTP_200_OK
         assert resp2.get_json()["end_date"] == yesterday.isoformat()
 
-    ##################################################################
-    # UPDATE
-    ##################################################################
+    # ---------- UPDATE ----------
 
     def test_update_promotion_success(self):
         """It should Update an existing Promotion (200)"""
@@ -364,9 +357,7 @@ class TestPromotionService:
         resp = self.client.put(f"{BASE_URL}/{pid}", json=bad)
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
 
-    ##################################################################
-    # DELETE / HOME / MISC
-    ##################################################################
+    # ---------- DELETE / HOME / MISC ----------
 
     def test_delete_existing(self):
         """It should delete an existing Promotion and return 204"""
@@ -404,14 +395,12 @@ class TestPromotionService:
         assert resp2.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
         assert resp2.is_json
 
-    ##################################################################
-    # HELPERS
-    ##################################################################
+    # ---------- HELPERS ----------
 
     def assert201(self, resp):
         assert resp.status_code == status.HTTP_201_CREATED
 
-    def assertFields(self, data, required=False):
+    def assertFields(self, data, required=False):  # noqa: N802  (已在顶部关闭 invalid-name)
         for key in ("id", "name", "promotion_type", "value", "product_id", "start_date", "end_date"):
             if required:
                 assert key in data

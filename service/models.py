@@ -6,10 +6,21 @@
 # You may obtain a copy of the License at
 #
 # https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 ######################################################################
 
 """
 Models for Promotions
+
+WHY this change:
+- Unify the query contract: single-item lookup (find) returns object|None;
+  multi-item lookups (find_by_name/product_id/promotion_type) return list/Query.
+- Replace ambiguous 'category' with explicit 'product_id' for clarity.
 """
 
 import logging
@@ -27,6 +38,11 @@ db = SQLAlchemy()
 
 class DataValidationError(Exception):
     """Used for data validation errors when deserializing or updating."""
+
+
+class DatabaseError(Exception):
+    """Database operation failures (kept for compatibility with error handlers)."""
+    pass
 
 
 class Promotion(db.Model):
@@ -50,7 +66,7 @@ class Promotion(db.Model):
         db.DateTime, default=db.func.now(), onupdate=db.func.now(), nullable=False
     )
 
-    # 允许的促销类型（包含项目中出现的几种写法，保证兼容）
+    # Allowed promotion types (support both human-readable and enum styles)
     ALLOWED_PROMOTION_TYPES = {
         "AMOUNT_OFF",
         "PERCENTAGE_OFF",
@@ -73,11 +89,13 @@ class Promotion(db.Model):
         self.id = None  # let SQLAlchemy assign one
         try:
             db.session.add(self)
-            db.session.flush()  # ensure id assigned even if commit mocked
+            # ensure id assigned even if commit mocked by tests
+            db.session.flush()
             db.session.commit()
         except Exception as e:  # pragma: no cover
             db.session.rollback()
             logger.error("Error creating record: %s", self)
+            # tests expect DataValidationError on DB errors
             raise DataValidationError(e) from e
 
     def update(self):
@@ -90,6 +108,7 @@ class Promotion(db.Model):
         except Exception as e:  # pragma: no cover
             db.session.rollback()
             logger.error("Error updating record: %s", self)
+            # tests expect DataValidationError on DB errors
             raise DataValidationError(e) from e
 
     def delete(self):
@@ -101,6 +120,7 @@ class Promotion(db.Model):
         except Exception as e:  # pragma: no cover
             db.session.rollback()
             logger.error("Error deleting record: %s", self)
+            # tests expect DataValidationError on DB errors
             raise DataValidationError(e) from e
 
     def serialize(self) -> dict:
@@ -115,7 +135,7 @@ class Promotion(db.Model):
             "end_date": self.end_date.isoformat() if self.end_date else None,
         }
 
-    # ---------------------- helpers (降低圈复杂度) ----------------------
+    # ---------------------- helpers ----------------------
 
     @staticmethod
     def _require_mapping(data):
@@ -202,7 +222,7 @@ class Promotion(db.Model):
 
     @classmethod
     def all(cls) -> List["Promotion"]:
-        """Returns all Promotions in the database (as a list)."""
+        """Returns all Promotions in the database."""
         logger.info("Processing all Promotions")
         return cls.query.all()
 
@@ -220,7 +240,6 @@ class Promotion(db.Model):
     def find_by_name(cls, name: str):
         """
         Returns a SQLAlchemy Query filtered by name.
-
         Tests call `.count()` on the result, so we must return a Query,
         not a list.
         """
@@ -229,7 +248,7 @@ class Promotion(db.Model):
 
     @classmethod
     def find_by_promotion_type(cls, promotion_type: str) -> List["Promotion"]:
-        """Returns all Promotions that match the given promotion_type exactly (as a list)."""
+        """Returns all Promotions that match the given promotion_type exactly."""
         logger.info("Processing promotion_type query for %s ...", promotion_type)
         return cls.query.filter(cls.promotion_type == promotion_type).all()
 
@@ -237,9 +256,8 @@ class Promotion(db.Model):
     def find_by_category(cls, category):
         """
         Returns a SQLAlchemy Query filtered by product_id (used as category).
-
-        The test suite calls `.count()` on the returned value, so we must
-        return a Query, not a list. For invalid input, return an empty Query.
+        Tests call `.count()` on the returned value, so we must return a Query.
+        For invalid input, return an empty Query.
         """
         logger.info("Processing category query for %s ...", category)
         try:

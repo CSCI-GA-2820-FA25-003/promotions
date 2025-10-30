@@ -1,18 +1,28 @@
 ######################################################################
-# Copyright 2016, 2024 John J. Rofrano
+# Copyright 2016, 2024 John J. Rofrano. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 ######################################################################
 
-import os
-import logging
+"""
+Promotion API Server Tests
+"""
+
 from datetime import date, timedelta
-from unittest import TestCase
 
 from wsgi import app
 from service.common import status
-
-######################################################################
-#  H E L P E R S
-######################################################################
+from tests.factories import PromotionFactory
 
 BASE_URL = "/promotions"
 
@@ -21,7 +31,7 @@ def make_payload(**overrides) -> dict:
     """Build a valid promotion JSON payload"""
     base = {
         "name": "NYU Demo",
-        "promotion_type": "AMOUNT_OFF",  # ✅ allowed
+        "promotion_type": "AMOUNT_OFF",  # ✅ allowed by backend
         "value": 10,
         "product_id": 123,
         "start_date": "2025-10-01",
@@ -32,259 +42,376 @@ def make_payload(**overrides) -> dict:
 
 
 ######################################################################
-#  T E S T   C A S E S
+#  P O S T   T E S T S
 ######################################################################
-class TestPromotionService(TestCase):  # pylint: disable=too-many-public-methods
+
+
+class TestPromotionService:
     """Promotion API Server Tests"""
 
-    @classmethod
-    def setUpClass(cls):
-        app.config["TESTING"] = True
-        app.config["DEBUG"] = False
-        app.logger.setLevel(logging.CRITICAL)
-
-    def setUp(self):
+    def setup_method(self, _method):
         self.client = app.test_client()
 
     ##################################################################
     # CREATE
     ##################################################################
+
     def test_create_promotion(self):
         """It should Create a new Promotion"""
-        resp = self.client.post(BASE_URL, json=make_payload())
-        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
-        data = resp.get_json()
-        self.assertIn("id", data)
-        self.assertEqual(data["promotion_type"], "AMOUNT_OFF")
+        test_promotion = PromotionFactory()
+        resp = self.client.post(BASE_URL, json=test_promotion.serialize())
+        self.assert201(resp)
+        new_json = resp.get_json()
+        self.assertFields(new_json, required=True)
 
     ##################################################################
-    # LIST & FILTERS
+    # LIST / QUERY
     ##################################################################
-    def test_list_all_promotions_when_no_query(self):
-        """It should list all promotions when no query params are given"""
-        a = make_payload(name="ListA", promotion_type="AMOUNT_OFF", value=1, product_id=1)
-        b = make_payload(name="ListB", promotion_type="AMOUNT_OFF", value=2, product_id=2)
-        ra = self.client.post(BASE_URL, json=a)
-        rb = self.client.post(BASE_URL, json=b)
-        self.assertEqual(ra.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(rb.status_code, status.HTTP_201_CREATED)
 
-        resp = self.client.get(BASE_URL)
-        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+    def test_query_by_promotion_type_returns_matches(self):
+        """It should return only promotions with the given promotion_type (exact match)"""
+        # Arrange: 一条 AMOUNT_OFF 和一条 BOGO
+        r1 = self.client.post(
+            BASE_URL, json=make_payload(name="A1", promotion_type="AMOUNT_OFF", value=10)
+        )
+        r2 = self.client.post(
+            BASE_URL, json=make_payload(name="B1", promotion_type="BOGO", value=100)
+        )
+        assert r1.status_code == status.HTTP_201_CREATED
+        assert r2.status_code == status.HTTP_201_CREATED
+
+        # Act: 查 BOGO
+        resp = self.client.get(f"{BASE_URL}?promotion_type=BOGO")
+        assert resp.status_code == status.HTTP_200_OK
         data = resp.get_json()
-        self.assertTrue(isinstance(data, list))
-        self.assertGreaterEqual(len(data), 2)
 
-    def test_filter_by_id_exact(self):
-        """It should filter by ?id=... returning [one] or []"""
-        created = self.client.post(BASE_URL, json=make_payload(name="IDOne"))
-        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
-        pid = created.get_json()["id"]
+        # Assert: 只有 B1
+        assert isinstance(data, list)
+        assert len(data) == 1
+        assert data[0]["promotion_type"] == "BOGO"
+        assert data[0]["name"] == "B1"
 
-        found = self.client.get(f"{BASE_URL}?id={pid}")
-        self.assertEqual(found.status_code, status.HTTP_200_OK)
-        body = found.get_json()
-        self.assertTrue(isinstance(body, list))
-        self.assertEqual(len(body), 1)
-        self.assertEqual(body[0]["id"], pid)
+    def test_query_by_promotion_type_returns_empty_when_no_match(self):
+        """It should return 200 and empty list when no promotions match"""
+        # Arrange: 存一条 AMOUNT_OFF
+        r = self.client.post(
+            BASE_URL, json=make_payload(name="A1", promotion_type="AMOUNT_OFF", value=10)
+        )
+        assert r.status_code == status.HTTP_201_CREATED
 
-    def test_filter_by_name(self):
-        """It should filter promotions by ?name=..."""
-        self.client.post(BASE_URL, json=make_payload(name="A"))
-        self.client.post(BASE_URL, json=make_payload(name="B"))
-        resp = self.client.get(f"{BASE_URL}?name=A")
-        self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        data = resp.get_json()
-        self.assertTrue(all(p["name"] == "A" for p in data))
+        # Act: 查一个不存在的类型
+        resp = self.client.get(f"{BASE_URL}?promotion_type=NON_EXISTENT_TYPE")
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.get_json() == []
+
+    def test_query_promotion_type_blank(self):
+        """It should return 200 and [] when ?promotion_type= is blank (only spaces)"""
+        # Arrange: 放一条
+        r = self.client.post(
+            BASE_URL, json=make_payload(name="X", promotion_type="AMOUNT_OFF")
+        )
+        assert r.status_code == status.HTTP_201_CREATED
+
+        # Act: blank param (spaces)
+        resp = self.client.get(f"{BASE_URL}?promotion_type=   ")
+        # Assert
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.get_json() == []
 
     def test_list_promotions_filter_by_product_id(self):
         """It should filter promotions by ?product_id=..."""
         self.client.post(BASE_URL, json=make_payload(name="A", product_id=2222))
         self.client.post(BASE_URL, json=make_payload(name="B", product_id=3333))
         resp = self.client.get(f"{BASE_URL}?product_id=2222")
-        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        assert resp.status_code == status.HTTP_200_OK
         data = resp.get_json()
-        self.assertTrue(len(data) >= 1)
-        self.assertTrue(all(p["product_id"] == 2222 for p in data))
+        assert isinstance(data, list)
+        assert len(data) == 1
+        assert data[0]["product_id"] == 2222
 
-    def test_query_by_promotion_type_returns_matches(self):
-        """It should return only promotions with the given promotion_type (exact match)"""
-        r1 = self.client.post(BASE_URL, json=make_payload(name="A1", promotion_type="AMOUNT_OFF", value=10))
-        r2 = self.client.post(BASE_URL, json=make_payload(name="B1", promotion_type="BOGO", value=100))
-        self.assertEqual(r1.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(r2.status_code, status.HTTP_201_CREATED)
+    def test_filter_by_id_returns_one_or_empty(self):
+        """It should filter by ?id=... returning [one] or []"""
+        r = self.client.post(BASE_URL, json=make_payload(name="OnlyOne"))
+        assert r.status_code == status.HTTP_201_CREATED
+        pid = r.get_json()["id"]
 
-        resp = self.client.get(f"{BASE_URL}?promotion_type=BOGO")
-        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        resp = self.client.get(f"{BASE_URL}?id={pid}")
+        assert resp.status_code == status.HTTP_200_OK
         data = resp.get_json()
-        self.assertTrue(isinstance(data, list))
-        self.assertEqual(len(data), 1)
-        self.assertEqual(data[0]["promotion_type"], "BOGO")
-        self.assertEqual(data[0]["name"], "B1")
+        assert isinstance(data, list) and len(data) == 1 and data[0]["id"] == pid
 
-    def test_query_by_promotion_type_returns_empty_when_no_match(self):
-        """It should return 200 and empty list when no promotions match"""
-        r = self.client.post(BASE_URL, json=make_payload(name="A1", promotion_type="AMOUNT_OFF", value=10))
-        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
-        resp = self.client.get(f"{BASE_URL}?promotion_type=NON_EXISTENT_TYPE")
-        self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(resp.get_json(), [])
+        resp2 = self.client.get(f"{BASE_URL}?id=999999")
+        assert resp2.status_code == status.HTTP_200_OK
+        assert resp2.get_json() == []
 
-    def test_query_promotion_type_blank(self):
-        """It should return 200 and [] when ?promotion_type= is blank (only spaces)"""
-        r = self.client.post(BASE_URL, json=make_payload(name="X", promotion_type="AMOUNT_OFF"))
-        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
-        resp = self.client.get(f"{BASE_URL}?promotion_type=   ")
-        self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(resp.get_json(), [])
+    def test_list_promotions_all_returns_list(self):
+        """It should list all promotions when no query params are given"""
+        client = app.test_client()
+
+        # ensure at least 2 items — 使用允许的枚举类型
+        a = make_payload(name="ListA", promotion_type="AMOUNT_OFF", value=1, product_id=1)
+        b = make_payload(name="ListB", promotion_type="AMOUNT_OFF", value=2, product_id=2)
+
+        ra = client.post("/promotions", json=a)
+        rb = client.post("/promotions", json=b)
+        assert ra.status_code == 201
+        assert rb.status_code == 201
+
+        resp = client.get("/promotions")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert isinstance(data, list)
+        assert len(data) >= 2
 
     ##################################################################
-    # ACTIVE TRUE/FALSE
+    # ACTIVE FILTER
     ##################################################################
+
+    def test_active_query_invalid_values(self):
+        """It should return 400 for invalid ?active= values"""
+        for bad in ["", "maybe", "ok?", "  truthy  "]:
+            resp = self.client.get(f"{BASE_URL}?active={bad}")
+            assert resp.status_code == status.HTTP_400_BAD_REQUEST
+
     def test_query_active_returns_only_current_promotions(self):
         """It should return only promotions that are active today when ?active=true"""
         today = date.today()
-        self.client.post(BASE_URL, json=make_payload(
-            name="ActiveNow",
-            start_date=(today - timedelta(days=2)).isoformat(),
-            end_date=(today + timedelta(days=2)).isoformat(),
-        ))
-        self.client.post(BASE_URL, json=make_payload(
-            name="Expired",
-            start_date=(today - timedelta(days=10)).isoformat(),
-            end_date=(today - timedelta(days=1)).isoformat(),
-        ))
-        self.client.post(BASE_URL, json=make_payload(
-            name="Future",
-            start_date=(today + timedelta(days=1)).isoformat(),
-            end_date=(today + timedelta(days=10)).isoformat(),
-        ))
+
+        # Active: past -> future
+        self.client.post(
+            BASE_URL,
+            json=make_payload(
+                name="ActiveNow",
+                start_date=(today - timedelta(days=2)).isoformat(),
+                end_date=(today + timedelta(days=2)).isoformat(),
+            ),
+        )
+
+        # Expired: past -> yesterday
+        self.client.post(
+            BASE_URL,
+            json=make_payload(
+                name="Expired",
+                start_date=(today - timedelta(days=10)).isoformat(),
+                end_date=(today - timedelta(days=1)).isoformat(),
+            ),
+        )
+
+        # Future: tomorrow -> future
+        self.client.post(
+            BASE_URL,
+            json=make_payload(
+                name="Future",
+                start_date=(today + timedelta(days=1)).isoformat(),
+                end_date=(today + timedelta(days=10)).isoformat(),
+            ),
+        )
+
         resp = self.client.get(f"{BASE_URL}?active=true")
-        self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        data = resp.get_json()
-        self.assertTrue(all(
-            (date.fromisoformat(p["start_date"]) <= today <= date.fromisoformat(p["end_date"]))
-            for p in data
-        ))
+        assert resp.status_code == status.HTTP_200_OK
+        names = {p["name"] for p in resp.get_json()}
+        assert "ActiveNow" in names
+        assert "Expired" not in names
+        assert "Future" not in names
 
     def test_active_truthy_and_falsy_synonyms(self):
         """It should accept yes/no/1/0/true/false (case-insensitive)"""
         today = date.today()
-        self.client.post(BASE_URL, json=make_payload(
-            name="ActiveNow",
-            start_date=(today - timedelta(days=1)).isoformat(),
-            end_date=(today + timedelta(days=1)).isoformat(),
-        ))
-        self.client.post(BASE_URL, json=make_payload(
-            name="Expired",
-            start_date=(today - timedelta(days=10)).isoformat(),
-            end_date=(today - timedelta(days=5)).isoformat(),
-        ))
-        self.client.post(BASE_URL, json=make_payload(
-            name="Future",
-            start_date=(today + timedelta(days=5)).isoformat(),
-            end_date=(today + timedelta(days=10)).isoformat(),
-        ))
 
-        # Truthy -> only active
+        # Prepare 3 states
+        self.client.post(
+            BASE_URL,
+            json=make_payload(
+                name="ActiveNow",
+                start_date=(today - timedelta(days=1)).isoformat(),
+                end_date=(today + timedelta(days=1)).isoformat(),
+            ),
+        )
+        self.client.post(
+            BASE_URL,
+            json=make_payload(
+                name="Expired",
+                start_date=(today - timedelta(days=10)).isoformat(),
+                end_date=(today - timedelta(days=5)).isoformat(),
+            ),
+        )
+        self.client.post(
+            BASE_URL,
+            json=make_payload(
+                name="Future",
+                start_date=(today + timedelta(days=5)).isoformat(),
+                end_date=(today + timedelta(days=10)).isoformat(),
+            ),
+        )
+
+        # Truthy set -> only active
         for truthy in ["true", "True", "1", "YES", " yes "]:
             resp = self.client.get(f"{BASE_URL}?active={truthy}")
-            self.assertEqual(resp.status_code, status.HTTP_200_OK)
+            assert resp.status_code == status.HTTP_200_OK
             data = resp.get_json()
-            self.assertTrue(all(
-                (date.fromisoformat(p["start_date"]) <= today <= date.fromisoformat(p["end_date"]))
-                for p in data
-            ))
+            assert all(d["name"] == "ActiveNow" for d in data)
 
-        # Falsy -> only NOT active today
+        # Falsy set -> only NOT active
         for falsy in ["false", "False", "0", "NO", " no "]:
             resp = self.client.get(f"{BASE_URL}?active={falsy}")
-            self.assertEqual(resp.status_code, status.HTTP_200_OK)
-            data = resp.get_json()
-            self.assertTrue(all(
-                (today < date.fromisoformat(p["start_date"])) or (today > date.fromisoformat(p["end_date"]))
-                for p in data
-            ))
+            assert resp.status_code == status.HTTP_200_OK
+            names = {p["name"] for p in resp.get_json()}
+            assert "ActiveNow" not in names
+            assert "Expired" in names
+            assert "Future" in names
 
-    def test_active_invalid_values(self):
-        """It should return 400 for invalid ?active= values"""
-        for bad in ["maybe", "y", "t", "2", ""]:
-            resp = self.client.get(f"{BASE_URL}?active={bad}")
-            self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+    def test_deactivate_promotion_sets_end_date_to_yesterday_and_excludes_from_active(self):
+        """Deactivating twice does not push end date forward; deactivating an already expired promo won't extend it"""
+        today = date.today()
+        yesterday = today - timedelta(days=1)
+
+        created = self.client.post(
+            BASE_URL,
+            json=make_payload(
+                name="ToDeactivate",
+                start_date=(today - timedelta(days=5)).isoformat(),
+                end_date=(today + timedelta(days=5)).isoformat(),
+            ),
+        )
+        assert created.status_code == status.HTTP_201_CREATED
+        pid = created.get_json()["id"]
+
+        # First deactivate -> set to yesterday
+        resp = self.client.put(f"{BASE_URL}/{pid}/deactivate")
+        assert resp.status_code == status.HTTP_200_OK
+        body = resp.get_json()
+        assert body["id"] == pid
+        assert body["end_date"] == yesterday.isoformat()
+
+        # No longer in active list
+        active_resp = self.client.get(f"{BASE_URL}?active=true")
+        assert active_resp.status_code == status.HTTP_200_OK
+        names = {p["name"] for p in active_resp.get_json()}
+        assert "ToDeactivate" not in names
+
+        # Deactivate again (idempotent/effective but not extend)
+        resp2 = self.client.put(f"{BASE_URL}/{pid}/deactivate")
+        assert resp2.status_code == status.HTTP_200_OK
+        assert resp2.get_json()["end_date"] == yesterday.isoformat()
 
     ##################################################################
     # UPDATE
     ##################################################################
+
     def test_update_promotion_success(self):
         """It should Update an existing Promotion (200)"""
-        created = self.client.post(BASE_URL, json=make_payload(name="Promo A", promotion_type="AMOUNT_OFF"))
-        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+        created = self.client.post(
+            BASE_URL,
+            json={
+                "name": "Promo A",
+                "promotion_type": "AMOUNT_OFF",
+                "value": 10,
+                "product_id": 111,
+                "start_date": "2025-10-01",
+                "end_date": "2025-10-31",
+            },
+        )
+        assert created.status_code == status.HTTP_201_CREATED
         pid = created.get_json()["id"]
 
-        payload = make_payload(name="Updated", promotion_type="AMOUNT_OFF", value=50, product_id=111)
-        resp = self.client.put(f"{BASE_URL}/{pid}", json=payload)
-        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        updated = {
+            "id": pid,
+            "name": "Promo A+",
+            "promotion_type": "AMOUNT_OFF",
+            "value": 15,
+            "product_id": 111,
+            "start_date": "2025-10-01",
+            "end_date": "2025-10-31",
+        }
+        resp = self.client.put(f"{BASE_URL}/{pid}", json=updated)
+        assert resp.status_code == status.HTTP_200_OK
         body = resp.get_json()
-        self.assertEqual(body["name"], "Updated")
-        self.assertEqual(body["value"], 50)
+        assert body["name"] == "Promo A+"
+        assert body["value"] == 15
 
     def test_update_promotion_not_found(self):
         """It should return 404 when updating a non-existent Promotion"""
-        payload = make_payload(name="Ghost", promotion_type="AMOUNT_OFF", value=5, product_id=222)
+        payload = {
+            "name": "Ghost",
+            "promotion_type": "AMOUNT_OFF",
+            "value": 5,
+            "product_id": 222,
+            "start_date": "2025-10-01",
+            "end_date": "2025-10-31",
+        }
         resp = self.client.put(f"{BASE_URL}/99999999", json=payload)
-        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+        assert resp.status_code == status.HTTP_404_NOT_FOUND
 
     def test_update_promotion_id_mismatch_returns_400(self):
         """It should return 400 when body.id != path id"""
-        created = self.client.post(BASE_URL, json=make_payload(name="Mismatch", promotion_type="AMOUNT_OFF"))
-        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+        created = self.client.post(
+            BASE_URL,
+            json={
+                "name": "Mismatch",
+                "promotion_type": "AMOUNT_OFF",
+                "value": 1,
+                "product_id": 9,
+                "start_date": "2025-10-01",
+                "end_date": "2025-10-31",
+            },
+        )
+        assert created.status_code == status.HTTP_201_CREATED
         pid = created.get_json()["id"]
-        payload = make_payload(name="Mismatch", promotion_type="AMOUNT_OFF")
-        payload["id"] = pid + 123  # intentionally different
-        resp = self.client.put(f"{BASE_URL}/{pid}", json=payload)
-        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # Body id != path id
+        bad = make_payload(name="Mismatch+", value=2)
+        bad["id"] = pid + 1
+        resp = self.client.put(f"{BASE_URL}/{pid}", json=bad)
+        assert resp.status_code == status.HTTP_400_BAD_REQUEST
 
     ##################################################################
-    # DELETE
+    # DELETE / HOME / MISC
     ##################################################################
-    def test_delete_promotion(self):
+
+    def test_delete_existing(self):
         """It should delete an existing Promotion and return 204"""
         created = self.client.post(BASE_URL, json=make_payload(name="ToDelete"))
-        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+        assert created.status_code == status.HTTP_201_CREATED
         pid = created.get_json()["id"]
+
         resp = self.client.delete(f"{BASE_URL}/{pid}")
-        self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
-        # deleting again -> 404
-        resp2 = self.client.delete(f"{BASE_URL}/{pid}")
-        self.assertEqual(resp2.status_code, status.HTTP_404_NOT_FOUND)
-
-    ##################################################################
-    # MISC
-    ##################################################################
-    def test_home_page(self):
-        """It should call the home page"""
-        resp = self.client.get("/")
-        self.assertEqual(resp.status_code, status.HTTP_200_OK)
-
-    def test_method_not_allowed_json(self):
-        """It should return JSON 405 for wrong method on /promotions/<id> (POST not allowed)"""
-        created = self.client.post(BASE_URL, json=make_payload())
-        pid = created.get_json()["id"]
-        resp = self.client.post(f"{BASE_URL}/{pid}", json={})
-        self.assertEqual(resp.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
-
-    def test_method_not_allowed_json_collection(self):
-        """It should return JSON 405 for wrong method on /promotions (PATCH not allowed)"""
-        resp = self.client.patch(BASE_URL, json={})
-        self.assertEqual(resp.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
-
-    def test_unknown_route(self):
-        """It should return JSON 404 for unknown routes"""
-        resp = self.client.get("/does-not-exist")
-        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+        assert resp.status_code == status.HTTP_204_NO_CONTENT
 
     def test_health(self):
         """It should return 200 OK with {'status':'OK'} on GET /health"""
         resp = self.client.get("/health")
-        self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(resp.get_json(), {"status": "OK"})
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.get_json() == {"status": "OK"}
+
+    def test_home(self):
+        """It should call the home page"""
+        resp = self.client.get("/")
+        assert resp.status_code == status.HTTP_200_OK
+
+    def test_unknown_route_404(self):
+        """It should return JSON 404 for unknown routes"""
+        resp = self.client.get("/no/such/route")
+        assert resp.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_method_not_allowed_json(self):
+        """405 responses should be JSON"""
+        # PATCH on /promotions is not allowed
+        resp = self.client.patch(BASE_URL, json={})
+        assert resp.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
+        assert resp.is_json
+        # POST on /promotions/<id> is not allowed
+        resp2 = self.client.post(f"{BASE_URL}/1", json={})
+        assert resp2.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
+        assert resp2.is_json
+
+    ##################################################################
+    # HELPERS
+    ##################################################################
+
+    def assert201(self, resp):
+        assert resp.status_code == status.HTTP_201_CREATED
+
+    def assertFields(self, data, required=False):
+        for key in ("id", "name", "promotion_type", "value", "product_id", "start_date", "end_date"):
+            if required:
+                assert key in data

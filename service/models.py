@@ -53,6 +53,18 @@ class Promotion(db.Model):
         db.DateTime, default=db.func.now(), onupdate=db.func.now(), nullable=False
     )
 
+    # ---- Allowed promotion types ----
+    # 为了兼容现有测试/工厂数据，这里同时允许同义写法：
+    # - 固定金额/百分比的人类可读写法（"Percentage off", "Buy One Get One", "Fixed amount off"）
+    # - 以及简写/枚举风格（"AMOUNT_OFF", "BOGO"）
+    ALLOWED_PROMOTION_TYPES = {
+        "AMOUNT_OFF",
+        "Percentage off",
+        "Buy One Get One",
+        "Fixed amount off",
+        "BOGO",
+    }
+
     ##################################################
     # INSTANCE METHODS
     ##################################################
@@ -109,30 +121,50 @@ class Promotion(db.Model):
 
     def deserialize(self, data: dict):
         """
-        Deserializes a Promotion from a dictionary.
+        Deserializes a Promotion from a dictionary and validates business rules.
 
-        Args:
-            data (dict): a dictionary containing the promotion data
+        Business constraints enforced:
+          - value must be non-negative (>= 0)
+          - product_id must be a positive integer (> 0)
+          - promotion_type must be one of ALLOWED_PROMOTION_TYPES
         """
         try:
+            # --- Required simple fields ---
             self.name = data["name"]
-            self.promotion_type = data["promotion_type"]
 
-            if isinstance(data["value"], int):
-                self.value = data["value"]
-            else:
+            # --- promotion_type: enumerated allowed values (保持原样，不做大小写/规范化转换) ---
+            ptype = data["promotion_type"]
+            if not isinstance(ptype, str):
+                raise DataValidationError(
+                    "Invalid type for string [promotion_type]: " + str(type(ptype))
+                )
+            if ptype not in self.ALLOWED_PROMOTION_TYPES:
+                raise DataValidationError(
+                    f"Invalid promotion_type '{ptype}'. "
+                    f"Allowed: {sorted(self.ALLOWED_PROMOTION_TYPES)}"
+                )
+            self.promotion_type = ptype
+
+            # --- value: must be integer and >= 0 ---
+            if not isinstance(data["value"], int):
                 raise DataValidationError(
                     "Invalid type for integer [value]: " + str(type(data["value"]))
                 )
+            if data["value"] < 0:
+                raise DataValidationError("Invalid value: must be >= 0")
+            self.value = data["value"]
 
-            if isinstance(data["product_id"], int):
-                self.product_id = data["product_id"]
-            else:
+            # --- product_id: must be integer and > 0 ---
+            if not isinstance(data["product_id"], int):
                 raise DataValidationError(
                     "Invalid type for integer [product_id]: "
                     + str(type(data["product_id"]))
                 )
+            if data["product_id"] <= 0:
+                raise DataValidationError("Invalid product_id: must be > 0")
+            self.product_id = data["product_id"]
 
+            # --- dates: ISO-8601 strings -> date ---
             self.start_date = date.fromisoformat(data["start_date"])
             self.end_date = date.fromisoformat(data["end_date"])
 

@@ -32,7 +32,7 @@ def make_payload(**overrides) -> dict:
     """Build a valid promotion JSON payload"""
     base = {
         "name": "NYU Demo",
-        "promotion_type": "AMOUNT_OFF",
+        "promotion_type": "AMOUNT_OFF",  # ✅ 后端允许
         "value": 10,
         "product_id": 123,
         "start_date": "2025-10-01",
@@ -110,62 +110,52 @@ class TestPromotionService(TestCase):
     # ---------- Query by promotion_type ----------
     def test_query_by_promotion_type_returns_matches(self):
         """It should return only promotions with the given promotion_type (exact match)"""
-        # Arrange: two types
-        self.client.post(
+        # Arrange: 一条 AMOUNT_OFF 和一条 BOGO
+        r1 = self.client.post(
             BASE_URL,
-            json=make_payload(
-                name="Percent10",
-                promotion_type="Percentage off",
-                value=10,
-            ),
+            json=make_payload(name="A1", promotion_type="AMOUNT_OFF", value=10),
         )
-        self.client.post(
+        r2 = self.client.post(
             BASE_URL,
-            json=make_payload(
-                name="BOGO",
-                promotion_type="Buy One Get One",
-                value=100,
-            ),
+            json=make_payload(name="B1", promotion_type="BOGO", value=100),
         )
+        self.assertEqual(r1.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(r2.status_code, status.HTTP_201_CREATED)
 
-        # Act
-        resp = self.client.get(f"{BASE_URL}?promotion_type=Buy One Get One")
+        # Act: 查 BOGO
+        resp = self.client.get(f"{BASE_URL}?promotion_type=BOGO")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         data = resp.get_json()
 
-        # Assert: only BOGO
+        # Assert: 只有 B1
         self.assertTrue(isinstance(data, list))
         self.assertEqual(len(data), 1)
-        self.assertEqual(data[0]["promotion_type"], "Buy One Get One")
-        self.assertEqual(data[0]["name"], "BOGO")
+        self.assertEqual(data[0]["promotion_type"], "BOGO")
+        self.assertEqual(data[0]["name"], "B1")
 
     def test_query_by_promotion_type_returns_empty_when_no_match(self):
         """It should return 200 and empty list when no promotions match"""
-        # Arrange: create other type
-        self.client.post(
+        # Arrange: 存一条 AMOUNT_OFF
+        r = self.client.post(
             BASE_URL,
-            json=make_payload(
-                name="Percent10",
-                promotion_type="Percentage off",
-                value=10,
-            ),
+            json=make_payload(name="A1", promotion_type="AMOUNT_OFF", value=10),
         )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
 
-        # Act
-        resp = self.client.get(f"{BASE_URL}?promotion_type=Nonexistent Type")
+        # Act: 查一个不存在的类型
+        resp = self.client.get(f"{BASE_URL}?promotion_type=NON_EXISTENT_TYPE")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(resp.get_json(), [])
 
     def test_query_promotion_type_blank(self):
         """It should return 200 and [] when ?promotion_type= is blank (only spaces)"""
-        # Arrange: prepare some promotions that should NOT be returned
-        self.client.post(
+        # Arrange: 放一条
+        r = self.client.post(
             BASE_URL,
-            json=make_payload(
-                name="X",
-                promotion_type="SomeType",
-            ),
+            json=make_payload(name="X", promotion_type="AMOUNT_OFF"),
         )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+
         # Act: blank param (spaces)
         resp = self.client.get(f"{BASE_URL}?promotion_type=   ")
         # Assert
@@ -240,10 +230,10 @@ def test_update_promotion_success():
     """It should Update an existing Promotion (200)"""
     client = app.test_client()
 
-    # create one
+    # create one（用允许的类型 AMOUNT_OFF）
     payload = {
         "name": "Promo A",
-        "promotion_type": "Percentage off",
+        "promotion_type": "AMOUNT_OFF",
         "value": 10,
         "product_id": 111,
         "start_date": "2025-10-01",
@@ -267,7 +257,7 @@ def test_update_promotion_not_found():
 
     payload = {
         "name": "Ghost",
-        "promotion_type": "Percentage off",
+        "promotion_type": "AMOUNT_OFF",
         "value": 5,
         "product_id": 222,
         "start_date": "2025-10-01",
@@ -283,25 +273,14 @@ def test_list_promotions_all_returns_list():
     """It should list all promotions when no query params are given"""
     client = app.test_client()
 
-    # ensure at least 2 items
-    a = {
-        "name": "ListA",
-        "promotion_type": "TypeA",
-        "value": 1,
-        "product_id": 1,
-        "start_date": "2025-10-01",
-        "end_date": "2025-10-31",
-    }
-    b = {
-        "name": "ListB",
-        "promotion_type": "TypeB",
-        "value": 2,
-        "product_id": 2,
-        "start_date": "2025-10-01",
-        "end_date": "2025-10-31",
-    }
-    client.post("/promotions", json=a)
-    client.post("/promotions", json=b)
+    # ensure at least 2 items — 使用允许的枚举类型
+    a = make_payload(name="ListA", promotion_type="AMOUNT_OFF", value=1, product_id=1)
+    b = make_payload(name="ListB", promotion_type="AMOUNT_OFF", value=2, product_id=2)
+
+    ra = client.post("/promotions", json=a)
+    rb = client.post("/promotions", json=b)
+    assert ra.status_code == 201
+    assert rb.status_code == 201
 
     resp = client.get("/promotions")
     assert resp.status_code == 200

@@ -24,6 +24,8 @@ import logging
 from unittest import TestCase
 from unittest.mock import patch
 from datetime import date
+import pytest
+
 from wsgi import app
 from service.models import Promotion, DataValidationError, db
 from tests.factories import PromotionFactory
@@ -292,3 +294,35 @@ class TestModelQueries(TestCaseBase):
         """It should handle invalid id gracefully"""
         found = Promotion.find_by_id("invalid")
         self.assertEqual(len(found), 0)
+
+
+######################################################################
+#  A D D E D   F O R   I S S U E   #57
+######################################################################
+
+
+def test_deserialize_negative_value():
+    """value < 0 should be rejected"""
+    p = PromotionFactory().serialize()
+    p["value"] = -1
+    promo = Promotion()
+    with pytest.raises(DataValidationError):
+        promo.deserialize(p)
+
+
+def test_deserialize_non_positive_product_id():
+    """product_id <= 0 should be rejected"""
+    p = PromotionFactory().serialize()
+    p["product_id"] = 0
+    promo = Promotion()
+    with pytest.raises(DataValidationError):
+        promo.deserialize(p)
+
+
+def test_deserialize_bad_promotion_type():
+    """Unsupported promotion_type should be rejected"""
+    p = PromotionFactory().serialize()
+    p["promotion_type"] = "Discount"  # not in ALLOWED_PROMOTION_TYPES
+    promo = Promotion()
+    with pytest.raises(DataValidationError):
+        promo.deserialize(p)

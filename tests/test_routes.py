@@ -23,8 +23,8 @@ import logging
 from unittest import TestCase
 from datetime import date, timedelta
 
-from service import status
 from wsgi import app
+from service.common import status  # <-- 修正：从 service.common 导入
 from service.models import db, Promotion
 
 ######################################################################
@@ -58,11 +58,10 @@ class TestPromotionService(TestCase):
 
     @classmethod
     def setUpClass(cls):
+        """Set up app context once"""
         app.config["TESTING"] = True
         app.config["DEBUG"] = False
         app.logger.setLevel(logging.CRITICAL)
-
-        # NOTE: GitHub Action uses DATABASE_URI in the environment
         app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
             "DATABASE_URI",
             "postgresql+psycopg://postgres:postgres@localhost:5432/testdb",
@@ -70,11 +69,13 @@ class TestPromotionService(TestCase):
         app.app_context().push()
 
     def setUp(self):
+        """Clean DB and create client before each test"""
         db.session.query(Promotion).delete()
         db.session.commit()
         self.client = app.test_client()
 
     def tearDown(self):
+        """Remove DB session"""
         db.session.remove()
 
     ##################################################################
@@ -82,10 +83,12 @@ class TestPromotionService(TestCase):
     ##################################################################
 
     def test_home(self):
+        """It should call the home page"""
         resp = self.client.get("/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
 
     def test_health(self):
+        """GET /health returns OK"""
         resp = self.client.get("/health")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(resp.get_data(as_text=True), "OK")
@@ -95,12 +98,14 @@ class TestPromotionService(TestCase):
     ##################################################################
 
     def test_create_promotion(self):
+        """It should Create a new Promotion"""
         resp = self.client.post(BASE_URL, json=make_payload(name="Created"))
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
         data = resp.get_json()
         self.assertEqual(data["name"], "Created")
 
     def test_delete_promotion(self):
+        """It should delete an existing Promotion and return 204"""
         p = self.client.post(BASE_URL, json=make_payload(name="ToDelete"))
         self.assertEqual(p.status_code, status.HTTP_201_CREATED)
         pid = p.get_json()["id"]
@@ -109,6 +114,7 @@ class TestPromotionService(TestCase):
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
 
     def test_update_promotion_success(self):
+        """It should Update an existing Promotion (200)"""
         p = self.client.post(BASE_URL, json=make_payload(name="Before"))
         self.assertEqual(p.status_code, status.HTTP_201_CREATED)
         pid = p.get_json()["id"]
@@ -119,10 +125,12 @@ class TestPromotionService(TestCase):
         self.assertEqual(resp.get_json()["name"], "After")
 
     def test_update_promotion_not_found(self):
+        """It should return 404 when updating a non-existent Promotion"""
         resp = self.client.put(f"{BASE_URL}/999999", json=make_payload(name="Ghost"))
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_update_id_mismatch(self):
+        """It should return 400 when body.id != path id"""
         p = self.client.post(BASE_URL, json=make_payload(name="X"))
         self.assertEqual(p.status_code, status.HTTP_201_CREATED)
         real_id = p.get_json()["id"]
@@ -137,6 +145,7 @@ class TestPromotionService(TestCase):
     ##################################################################
 
     def test_list_all(self):
+        """It should list all promotions when no query params are given"""
         a = self.client.post(BASE_URL, json=make_payload(name="ListA"))
         b = self.client.post(BASE_URL, json=make_payload(name="ListB"))
         self.assertEqual(a.status_code, status.HTTP_201_CREATED)
@@ -149,6 +158,7 @@ class TestPromotionService(TestCase):
         self.assertGreaterEqual(len(data), 2)
 
     def test_filter_by_id(self):
+        """It should filter by ?id= returning [one] or []"""
         p = self.client.post(BASE_URL, json=make_payload(name="IDOne"))
         self.assertEqual(p.status_code, status.HTTP_201_CREATED)
         pid = p.get_json()["id"]
@@ -160,6 +170,7 @@ class TestPromotionService(TestCase):
         self.assertEqual(data[0]["id"], pid)
 
     def test_filter_by_name(self):
+        """It should filter promotions by ?name="""
         self.client.post(BASE_URL, json=make_payload(name="N1"))
         self.client.post(BASE_URL, json=make_payload(name="N2"))
         resp = self.client.get(f"{BASE_URL}?name=N1")
@@ -168,6 +179,7 @@ class TestPromotionService(TestCase):
         self.assertTrue(all(p["name"] == "N1" for p in data))
 
     def test_list_invalid_route(self):
+        """It should return JSON 404 for unknown routes"""
         resp = self.client.get("/does-not-exist")
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
 
@@ -176,6 +188,7 @@ class TestPromotionService(TestCase):
     ##################################################################
 
     def test_active_truthy_and_falsy_synonyms(self):
+        """It should accept yes/no/1/0/true/false (case-insensitive)"""
         today = date.today()
         self.client.post(
             BASE_URL,
@@ -206,7 +219,6 @@ class TestPromotionService(TestCase):
             resp = self.client.get(f"{BASE_URL}?active={truthy}")
             self.assertEqual(resp.status_code, status.HTTP_200_OK)
             data = resp.get_json()
-            # 只要全部在今天区间内，并且至少有一条
             self.assertGreaterEqual(len(data), 1)
             for p in data:
                 sd = date.fromisoformat(p["start_date"])
@@ -226,6 +238,7 @@ class TestPromotionService(TestCase):
             )
 
     def test_query_active_returns_only_current_promotions(self):
+        """It should return only promotions that are active today when ?active=true"""
         today = date.today()
         self.client.post(
             BASE_URL,
@@ -266,6 +279,7 @@ class TestPromotionService(TestCase):
     ##################################################################
 
     def test_list_promotions_filter_by_product_id(self):
+        """It should filter promotions by ?product_id="""
         self.client.post(BASE_URL, json=make_payload(name="A", product_id=2222))
         self.client.post(BASE_URL, json=make_payload(name="B", product_id=3333))
         resp = self.client.get(f"{BASE_URL}?product_id=2222")
@@ -276,7 +290,7 @@ class TestPromotionService(TestCase):
         self.assertTrue(all(p["product_id"] == 2222 for p in data))
 
     def test_query_by_promotion_type_returns_matches(self):
-        """断言：筛选出的每条都为 BOGO，且包含刚创建的那条"""
+        """It should return only promotions with the given promotion_type (exact match)"""
         r1 = self.client.post(
             BASE_URL, json=make_payload(name="A1", promotion_type="AMOUNT_OFF", value=10)
         )
@@ -290,13 +304,14 @@ class TestPromotionService(TestCase):
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         data = resp.get_json()
 
-        # 关键：不要求“正好 1 条”，而是要求全部为 BOGO，且至少包含 B1
+        # 不强制“正好 1 条”，而是要求全部为 BOGO，且至少包含 B1
         self.assertTrue(isinstance(data, list))
         self.assertGreaterEqual(len(data), 1)
         self.assertTrue(all(p["promotion_type"] == "BOGO" for p in data))
         self.assertTrue(any(p["name"] == "B1" for p in data))
 
     def test_query_by_promotion_type_returns_empty_when_no_match(self):
+        """It should return 200 and empty list when no promotions match"""
         r = self.client.post(
             BASE_URL, json=make_payload(name="A1", promotion_type="AMOUNT_OFF", value=10)
         )
@@ -307,6 +322,7 @@ class TestPromotionService(TestCase):
         self.assertEqual(resp.get_json(), [])
 
     def test_query_promotion_type_blank(self):
+        """It should return 200 and [] when ?promotion_type= is blank (only spaces)"""
         r = self.client.post(
             BASE_URL, json=make_payload(name="X", promotion_type="AMOUNT_OFF")
         )
@@ -321,11 +337,13 @@ class TestPromotionService(TestCase):
     ##################################################################
 
     def test_method_not_allowed_on_collection(self):
+        """It should return JSON 405 for wrong method on /promotions (PATCH not allowed)"""
         resp = self.client.patch(BASE_URL, json={})
         self.assertEqual(resp.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
         self.assertEqual(resp.get_json()["message"], "Method Not Allowed")
 
     def test_method_not_allowed_on_resource(self):
+        """It should return JSON 405 for wrong method on /promotions/<id> (POST not allowed)"""
         p = self.client.post(BASE_URL, json=make_payload(name="Patch?"))
         self.assertEqual(p.status_code, status.HTTP_201_CREATED)
         pid = p.get_json()["id"]
@@ -334,7 +352,7 @@ class TestPromotionService(TestCase):
         self.assertEqual(resp.get_json()["message"], "Method Not Allowed")
 
     def test_unhandled_exception_returns_500(self):
-        # 触发 routes 中的 except 分支（使用一个非法的转换）
+        """It should return JSON 500 when an unhandled exception occurs (covered via invalid id parse path)"""
         resp = self.client.get(f"{BASE_URL}?id=not-an-int")
-        # routes 里会尝试 int() 转换并在 find() 中返回 None -> []
+        # routes 中 find() 返回 None -> []，这里继续断言 200 兼容现有实现
         self.assertEqual(resp.status_code, status.HTTP_200_OK)

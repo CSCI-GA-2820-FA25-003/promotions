@@ -16,17 +16,12 @@
 
 """
 Models for Promotions
-
-WHY this change:
-- Unify the query contract: single-item lookup (find) returns object|None;
-  multi-item lookups (find_by_name/product_id/promotion_type) return list/Query.
-- Replace ambiguous 'category' with explicit 'product_id' for clarity.
 """
 
 import logging
 from datetime import date
 from collections.abc import Mapping
-from typing import Optional, Union, List
+from typing import List, Optional, Union
 
 from flask_sqlalchemy import SQLAlchemy
 
@@ -41,8 +36,7 @@ class DataValidationError(Exception):
 
 
 class DatabaseError(Exception):
-    """Database operation failures (kept for compatibility with error handlers)."""
-    pass
+    """Used for database operation failures (commit/connection/constraint errors)."""
 
 
 class Promotion(db.Model):
@@ -66,14 +60,14 @@ class Promotion(db.Model):
         db.DateTime, default=db.func.now(), onupdate=db.func.now(), nullable=False
     )
 
-    # Allowed promotion types (support both human-readable and enum styles)
+    # 为了兼容测试和工厂数据，允许几种常见写法
     ALLOWED_PROMOTION_TYPES = {
         "AMOUNT_OFF",
         "PERCENTAGE_OFF",
         "Percentage off",
         "Buy One Get One",
-        "BOGO",
         "Fixed amount off",
+        "BOGO",
     }
 
     ##################################################
@@ -86,29 +80,28 @@ class Promotion(db.Model):
     def create(self):
         """Creates this Promotion in the database."""
         logger.info("Creating %s", self.name)
-        self.id = None  # let SQLAlchemy assign one
+        self.id = None  # ensure SQLAlchemy assigns one
         try:
             db.session.add(self)
-            # ensure id assigned even if commit mocked by tests
+            # flush 以便在 commit 被 mock 时也能拿到 id（单测需要）
             db.session.flush()
             db.session.commit()
-        except Exception as e:  # pragma: no cover
+        except Exception as e:  # pragma: no cover - exercised via exception tests
             db.session.rollback()
             logger.error("Error creating record: %s", self)
-            # tests expect DataValidationError on DB errors
+            # 测试期望：模型层抛 DataValidationError（由 error_handlers 统一成 500）
             raise DataValidationError(e) from e
 
     def update(self):
         """Updates this Promotion in the database."""
         logger.info("Saving %s", self.name)
         if not self.id:
-            raise DataValidationError("Update called with empty ID field")
+            raise DataValidationError("Field 'id' is required for update")
         try:
             db.session.commit()
-        except Exception as e:  # pragma: no cover
+        except Exception as e:  # pragma: no cover - exercised via exception tests
             db.session.rollback()
             logger.error("Error updating record: %s", self)
-            # tests expect DataValidationError on DB errors
             raise DataValidationError(e) from e
 
     def delete(self):
@@ -117,10 +110,9 @@ class Promotion(db.Model):
         try:
             db.session.delete(self)
             db.session.commit()
-        except Exception as e:  # pragma: no cover
+        except Exception as e:  # pragma: no cover - exercised via exception tests
             db.session.rollback()
             logger.error("Error deleting record: %s", self)
-            # tests expect DataValidationError on DB errors
             raise DataValidationError(e) from e
 
     def serialize(self) -> dict:
@@ -135,7 +127,7 @@ class Promotion(db.Model):
             "end_date": self.end_date.isoformat() if self.end_date else None,
         }
 
-    # ---------------------- helpers ----------------------
+    # ---------------------- helpers （降低圈复杂度） ----------------------
 
     @staticmethod
     def _require_mapping(data):
@@ -222,9 +214,9 @@ class Promotion(db.Model):
 
     @classmethod
     def all(cls) -> List["Promotion"]:
-        """Returns all Promotions in the database."""
+        """Returns all Promotions in the database (as a list)."""
         logger.info("Processing all Promotions")
-        return cls.query.all()
+        return list(cls.query.all())
 
     @classmethod
     def find(cls, by_id: Union[int, str]) -> Optional["Promotion"]:
@@ -237,46 +229,38 @@ class Promotion(db.Model):
         return cls.query.session.get(cls, pid)
 
     @classmethod
-    def find_by_name(cls, name: str):
-        """
-        Returns a SQLAlchemy Query filtered by name.
-        Tests call `.count()` on the result, so we must return a Query,
-        not a list.
-        """
+    def find_by_name(cls, name: str) -> List["Promotion"]:
+        """Returns all Promotions that match the given name (as a list)."""
         logger.info("Processing name query for %s ...", name)
-        return cls.query.filter(cls.name == name)
+        return list(cls.query.filter(cls.name == name).all())
 
     @classmethod
     def find_by_promotion_type(cls, promotion_type: str) -> List["Promotion"]:
-        """Returns all Promotions that match the given promotion_type exactly."""
+        """Returns all Promotions that match the given promotion_type exactly (as a list)."""
         logger.info("Processing promotion_type query for %s ...", promotion_type)
-        return cls.query.filter(cls.promotion_type == promotion_type).all()
+        return list(cls.query.filter(cls.promotion_type == promotion_type).all())
 
     @classmethod
-    def find_by_category(cls, category):
-        """
-        Returns a SQLAlchemy Query filtered by product_id (used as category).
-        Tests call `.count()` on the returned value, so we must return a Query.
-        For invalid input, return an empty Query.
-        """
-        logger.info("Processing category query for %s ...", category)
+    def find_by_product_id(cls, product_id: Union[int, str]) -> List["Promotion"]:
+        """Returns all Promotions that match the given product_id (as a list)."""
+        logger.info("Processing product_id query for %s ...", product_id)
         try:
-            product_id = int(category)
-            return cls.query.filter(cls.product_id == product_id)
-        except (ValueError, TypeError):
-            # empty Query (still supports .count() -> 0)
-            return cls.query.filter(False)
-
-    @classmethod
-    def find_by_id(cls, promotion_id):
-        """
-        Returns a single-element list containing the Promotion with the given id,
-        or an empty list if not found or invalid.
-        """
-        logger.info("Processing id query for %s ...", promotion_id)
-        try:
-            pid = int(promotion_id)
-        except (ValueError, TypeError):
+            pid = int(product_id)
+        except (TypeError, ValueError):
             return []
-        promotion = cls.query.session.get(cls, pid)
-        return [promotion] if promotion else []
+        return list(cls.query.filter(cls.product_id == pid).all())
+
+    @classmethod
+    def find_active(cls, on_date: Optional[date] = None) -> List["Promotion"]:
+        """
+        Returns all Promotions that are active on the given date (inclusive).
+        Active means: start_date <= on_date <= end_date.
+        """
+        if on_date is None:
+            on_date = date.today()
+        return list(
+            cls.query.filter(
+                cls.start_date <= on_date,
+                cls.end_date >= on_date,
+            ).all()
+        )

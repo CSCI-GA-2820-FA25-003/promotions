@@ -17,13 +17,16 @@
 """
 Models for Promotions
 
-WHY this change:
-- Unify the query contract: single-item lookup (find) returns object|None;
-  multi-item lookups use an explicit API:
-    * find_by_name(...) -> Query   (tests call .count())
-    * find_by_category(...) -> Query   (product_id alias; tests call .count())
-    * find_by_id(...) -> list[Promotion] | []   (tests expect list then index [0])
-- Replace ambiguous 'category' with explicit 'product_id' but keep the alias.
+Contract (to satisfy tests and routes):
+- Single lookup:
+    * find(id) -> Promotion | None
+    * find_by_id(id) -> [Promotion] or []
+- Multi-item lookups:
+    * find_by_name(name) -> SQLAlchemy Query     (tests call .count())
+    * find_by_category(category==product_id) -> SQLAlchemy Query (tests call .count())
+    * find_by_product_id(product_id) -> list[Promotion]          (routes use as list)
+    * find_by_promotion_type(ptype) -> list[Promotion]           (routes use as list)
+    * find_active(on_date) -> list[Promotion]                    (routes use as list)
 """
 
 import logging
@@ -35,7 +38,7 @@ from flask_sqlalchemy import SQLAlchemy
 
 logger = logging.getLogger("flask.app")
 
-# SQLAlchemy handle; initialized in init_db()
+# Initialized by init_db() in app factory
 db = SQLAlchemy()
 
 
@@ -44,13 +47,11 @@ class DataValidationError(Exception):
 
 
 class DatabaseError(Exception):
-    """Used for database operation failures (commit/connection/constraint errors)."""
+    """Kept for compatibility with error handlers; not used in tests."""
 
 
 class Promotion(db.Model):
-    """
-    Class that represents a Promotion
-    """
+    """Class that represents a Promotion"""
 
     ##################################################
     # Table Schema
@@ -62,13 +63,14 @@ class Promotion(db.Model):
     product_id = db.Column(db.Integer, nullable=False)
     start_date = db.Column(db.Date, nullable=False)
     end_date = db.Column(db.Date, nullable=False)
-    # Auditing fields
+
+    # auditing
     created_at = db.Column(db.DateTime, default=db.func.now(), nullable=False)
     last_updated = db.Column(
         db.DateTime, default=db.func.now(), onupdate=db.func.now(), nullable=False
     )
 
-    # ---- Allowed promotion types (include synonyms used in tests) ----
+    # 允许的促销类型（包含项目&测试中出现的写法）
     ALLOWED_PROMOTION_TYPES = {
         "AMOUNT_OFF",
         "PERCENTAGE_OFF",
@@ -82,7 +84,7 @@ class Promotion(db.Model):
     # INSTANCE METHODS
     ##################################################
 
-    def __repr__(self):
+    def __repr__(self) -> str:  # pragma: no cover (string repr)
         return f"<Promotion {self.name} id=[{self.id}]>"
 
     def create(self):
@@ -91,14 +93,14 @@ class Promotion(db.Model):
         self.id = None  # let SQLAlchemy assign one
         try:
             db.session.add(self)
-            # Ensure PK is assigned even if commit() is mocked in tests
+            # ensure PK exists even if commit is mocked
             db.session.flush()
             db.session.commit()
-        except Exception as e:  # pragma: no cover
+        except Exception as e:  # pragma: no cover (hit via unit test mocking)
             db.session.rollback()
             logger.error("Error creating record: %s", self)
-            # tests expect DatabaseError for DB faults
-            raise DatabaseError(e) from e
+            # ✅ tests expect DataValidationError
+            raise DataValidationError(e) from e
 
     def update(self):
         """Updates this Promotion in the database."""
@@ -110,7 +112,8 @@ class Promotion(db.Model):
         except Exception as e:  # pragma: no cover
             db.session.rollback()
             logger.error("Error updating record: %s", self)
-            raise DatabaseError(e) from e
+            # ✅ tests expect DataValidationError
+            raise DataValidationError(e) from e
 
     def delete(self):
         """Removes this Promotion from the data store."""
@@ -121,7 +124,8 @@ class Promotion(db.Model):
         except Exception as e:  # pragma: no cover
             db.session.rollback()
             logger.error("Error deleting record: %s", self)
-            raise DatabaseError(e) from e
+            # ✅ tests expect DataValidationError
+            raise DataValidationError(e) from e
 
     def serialize(self) -> dict:
         """Serializes a Promotion into a dictionary."""
@@ -198,7 +202,6 @@ class Promotion(db.Model):
         """Deserializes a Promotion from a dictionary and validates business rules."""
         self._require_mapping(data)
 
-        # required fields
         self.name = self._require_str(data, "name")
         ptype = self._require_str(data, "promotion_type")
         self.promotion_type = self._validate_promotion_type(ptype)
@@ -233,41 +236,63 @@ class Promotion(db.Model):
             return None
         return cls.query.session.get(cls, pid)
 
-    # ===== Methods expected by tests =====
+    # ===== Methods expected by tests and routes =====
 
     @classmethod
     def find_by_name(cls, name: str):
-        """
-        Returns a SQLAlchemy Query filtered by name.
-        Tests call `.count()` on the result, so we must return a Query (not a list).
-        """
+        """Return a SQLAlchemy Query filtered by name (tests call .count())."""
         logger.info("Processing name query for %s ...", name)
         return cls.query.filter(cls.name == name)
 
     @classmethod
     def find_by_category(cls, category):
         """
-        Backward-compatible alias for filtering by product_id.
-        Return a SQLAlchemy Query; for invalid input return an empty Query.
+        Backward-compatible alias for product_id used by model tests.
+        Return a SQLAlchemy Query; invalid input -> empty Query (still .count()==0).
         """
         logger.info("Processing category query for %s ...", category)
         try:
             product_id = int(category)
             return cls.query.filter(cls.product_id == product_id)
         except (ValueError, TypeError):
-            # empty Query that still supports .count() -> 0
             return cls.query.filter(False)
 
     @classmethod
-    def find_by_id(cls, promotion_id):
-        """
-        Return [Promotion] when found else [].
-        Tests expect a list and will index [0].
-        """
+    def find_by_product_id(cls, product_id: Union[int, str]) -> List["Promotion"]:
+        """Return a list of Promotions with the given product_id (used by routes)."""
+        logger.info("Processing product_id query for %s ...", product_id)
+        try:
+            pid = int(product_id)
+        except (ValueError, TypeError):
+            return []
+        return list(cls.query.filter(cls.product_id == pid).all())
+
+    @classmethod
+    def find_by_promotion_type(cls, promotion_type: str) -> List["Promotion"]:
+        """Return a list of Promotions with the given promotion_type (exact match)."""
+        logger.info("Processing promotion_type query for %s ...", promotion_type)
+        return list(cls.query.filter(cls.promotion_type == promotion_type).all())
+
+    @classmethod
+    def find_active(cls, on_date: Optional[date] = None) -> List["Promotion"]:
+        """Return a list of Promotions active on the given date (inclusive)."""
+        if on_date is None:
+            on_date = date.today()
+        logger.info("Processing active-on %s query ...", on_date.isoformat())
+        return list(
+            cls.query.filter(
+                cls.start_date <= on_date,
+                cls.end_date >= on_date,
+            ).all()
+        )
+
+    @classmethod
+    def find_by_id(cls, promotion_id) -> List["Promotion"]:
+        """Return [Promotion] when found else []."""
         logger.info("Processing id query for %s ...", promotion_id)
         try:
             pid = int(promotion_id)
         except (ValueError, TypeError):
             return []
-        promotion = cls.query.session.get(cls, pid)
-        return [promotion] if promotion else []
+        obj = cls.query.session.get(cls, pid)
+        return [obj] if obj else []

@@ -21,18 +21,26 @@ import logging
 from unittest import TestCase
 from datetime import date, timedelta
 
-from flask_api import status
-
 from wsgi import app
 from service.models import Promotion, db
 
+# ---- Minimal status shim so we don't depend on flask_api in lint/CI ----
+class status:  # noqa: N801 (match existing usage in tests)
+    HTTP_200_OK = 200
+    HTTP_201_CREATED = 201
+    HTTP_204_NO_CONTENT = 204
+    HTTP_400_BAD_REQUEST = 400
+    HTTP_404_NOT_FOUND = 404
+    HTTP_405_METHOD_NOT_ALLOWED = 405
+    HTTP_500_INTERNAL_SERVER_ERROR = 500
+
+
 BASE_URL = "/promotions"
+
 
 ######################################################################
 # Helpers
 ######################################################################
-
-
 def make_payload(**overrides) -> dict:
     """Build a valid promotion JSON payload"""
     base = {
@@ -50,9 +58,7 @@ def make_payload(**overrides) -> dict:
 ######################################################################
 # Base TestCase
 ######################################################################
-
-
-class TestPromotionService(TestCase):
+class TestPromotionService(TestCase):  # pylint: disable=too-many-public-methods
     """Promotion Service functional tests"""
 
     @classmethod
@@ -79,7 +85,6 @@ class TestPromotionService(TestCase):
     ###################################################################
     # Basic endpoints
     ###################################################################
-
     def test_home_page(self):
         """It should call the home page"""
         resp = self.client.get("/")
@@ -106,7 +111,6 @@ class TestPromotionService(TestCase):
     ###################################################################
     # Create / Read / Update / Delete
     ###################################################################
-
     def test_create_promotion(self):
         """It should Create a new Promotion"""
         resp = self.client.post(BASE_URL, json=make_payload(name="Promo A"))
@@ -159,7 +163,6 @@ class TestPromotionService(TestCase):
     ###################################################################
     # Queries / filters
     ###################################################################
-
     def test_list_promotions_all_returns_list(self):
         """It should list all promotions when no query params are given"""
         r1 = self.client.post(BASE_URL, json=make_payload(name="ListA", product_id=1))
@@ -241,7 +244,10 @@ class TestPromotionService(TestCase):
             self.assertEqual(resp.status_code, status.HTTP_200_OK)
             data = resp.get_json()
             self.assertTrue(
-                all(d["start_date"] <= date.today().isoformat() <= d["end_date"] for d in data)
+                all(
+                    d["start_date"] <= date.today().isoformat() <= d["end_date"]
+                    for d in data
+                )
             )
 
         for falsy in ["false", "False", "0", "NO", " no "]:
@@ -280,20 +286,31 @@ class TestPromotionService(TestCase):
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         data = resp.get_json()
         self.assertTrue(
-            all(d["start_date"] <= date.today().isoformat() <= d["end_date"] for d in data)
+            all(
+                d["start_date"] <= date.today().isoformat() <= d["end_date"]
+                for d in data
+            )
         )
 
     def test_query_no_matches(self):
         """It should return 200 and empty list when no promotions match"""
-        self.client.post(BASE_URL, json=make_payload(name="A1", promotion_type="AMOUNT_OFF", value=10))
+        self.client.post(
+            BASE_URL,
+            json=make_payload(name="A1", promotion_type="AMOUNT_OFF", value=10),
+        )
         resp = self.client.get(f"{BASE_URL}?promotion_type=NON_EXISTENT_TYPE")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(resp.get_json(), [])
 
     def test_query_by_promotion_type_returns_matches(self):
         """It should return only promotions with the given promotion_type (exact match)"""
-        r1 = self.client.post(BASE_URL, json=make_payload(name="A1", promotion_type="AMOUNT_OFF", value=10))
-        r2 = self.client.post(BASE_URL, json=make_payload(name="B1", promotion_type="BOGO", value=100))
+        r1 = self.client.post(
+            BASE_URL,
+            json=make_payload(name="A1", promotion_type="AMOUNT_OFF", value=10),
+        )
+        r2 = self.client.post(
+            BASE_URL, json=make_payload(name="B1", promotion_type="BOGO", value=100)
+        )
         self.assertEqual(r1.status_code, status.HTTP_201_CREATED)
         self.assertEqual(r2.status_code, status.HTTP_201_CREATED)
 
@@ -315,7 +332,6 @@ class TestPromotionService(TestCase):
     ###################################################################
     # Method not allowed & server error
     ###################################################################
-
     def test_method_not_allowed_on_collection(self):
         """It should return JSON 405 for wrong method on /promotions (PATCH not allowed)"""
         resp = self.client.patch(BASE_URL, json={})

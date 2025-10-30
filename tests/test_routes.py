@@ -6,7 +6,8 @@
 Promotion Service route tests
 """
 
-# pylint: disable=duplicate-code
+# pylint: disable=duplicate-code, too-many-public-methods
+
 import os
 from datetime import date, timedelta
 from unittest import TestCase

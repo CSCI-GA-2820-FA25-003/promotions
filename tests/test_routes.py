@@ -55,6 +55,7 @@ def make_payload(**overrides) -> dict:
 
 class TestPromotionService(TestCase):
     """Promotion Service functional tests"""
+    # pylint: disable=too-many-public-methods
 
     @classmethod
     def setUpClass(cls):

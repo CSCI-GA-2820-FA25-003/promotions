@@ -26,6 +26,7 @@ from datetime import date, timedelta
 from wsgi import app
 from service.models import Promotion, db
 
+
 # ---- Minimal status shim so we don't rely on flask_api in CI/lint ----
 class status:  # noqa: N801 (keep existing naming used in tests)
     HTTP_200_OK = 200
@@ -43,6 +44,8 @@ BASE_URL = "/promotions"
 ######################################################################
 # Helpers
 ######################################################################
+
+
 def make_payload(**overrides) -> dict:
     """Build a valid promotion JSON payload"""
     base = {
@@ -60,6 +63,8 @@ def make_payload(**overrides) -> dict:
 ######################################################################
 # Base TestCase
 ######################################################################
+
+
 class TestPromotionService(TestCase):
     """Promotion Service functional tests"""
 
@@ -242,7 +247,6 @@ class TestPromotionService(TestCase):
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         data = resp.get_json()
         self.assertTrue(isinstance(data, list))
-        # 只应该返回 BOGO 的 B1
         self.assertEqual(len(data), 1)
         self.assertEqual(data[0]["promotion_type"], "BOGO")
         self.assertEqual(data[0]["name"], "B1")
@@ -292,14 +296,12 @@ class TestPromotionService(TestCase):
             self.assertEqual(resp.status_code, status.HTTP_200_OK)
             data = resp.get_json()
             self.assertTrue(all(isinstance(p, dict) for p in data))
-            # 都应是“当前活跃”的那条
             self.assertTrue(all(p["name"] == "ActiveNow" for p in data))
 
         for falsy in ["false", "False", "0", "NO", " no "]:
             resp = self.client.get(f"{BASE_URL}?active={falsy}")
             self.assertEqual(resp.status_code, status.HTTP_200_OK)
             data = resp.get_json()
-            # 不包含“ActiveNow”
             self.assertTrue(all(p["name"] != "ActiveNow" for p in data))
 
     def test_query_active_returns_only_current_promotions(self):

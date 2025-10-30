@@ -14,6 +14,9 @@ Models for Promotions
 
 import logging
 from datetime import date
+from collections.abc import Mapping
+from typing import Optional, Union, List
+
 from flask_sqlalchemy import SQLAlchemy
 
 logger = logging.getLogger("flask.app")
@@ -47,13 +50,14 @@ class Promotion(db.Model):
         db.DateTime, default=db.func.now(), onupdate=db.func.now(), nullable=False
     )
 
-    # Allowed types (covering factory + tests + enum-like codes)
+    # 允许的促销类型（包含项目中出现的几种写法，保证兼容）
     ALLOWED_PROMOTION_TYPES = {
         "AMOUNT_OFF",
+        "PERCENTAGE_OFF",
         "Percentage off",
         "Buy One Get One",
-        "Fixed amount off",
         "BOGO",
+        "Fixed amount off",
     }
 
     ##################################################
@@ -66,11 +70,12 @@ class Promotion(db.Model):
     def create(self):
         """Creates this Promotion in the database."""
         logger.info("Creating %s", self.name)
-        self.id = None  # make sure id is None so SQLAlchemy will assign one
+        self.id = None  # let SQLAlchemy assign one
         try:
             db.session.add(self)
+            db.session.flush()  # ensure id assigned even if commit mocked
             db.session.commit()
-        except Exception as e:  # pragma: no cover - exercised via exception tests
+        except Exception as e:  # pragma: no cover
             db.session.rollback()
             logger.error("Error creating record: %s", self)
             raise DataValidationError(e) from e
@@ -82,7 +87,7 @@ class Promotion(db.Model):
             raise DataValidationError("Update called with empty ID field")
         try:
             db.session.commit()
-        except Exception as e:  # pragma: no cover - exercised via exception tests
+        except Exception as e:  # pragma: no cover
             db.session.rollback()
             logger.error("Error updating record: %s", self)
             raise DataValidationError(e) from e
@@ -93,7 +98,7 @@ class Promotion(db.Model):
         try:
             db.session.delete(self)
             db.session.commit()
-        except Exception as e:  # pragma: no cover - exercised via exception tests
+        except Exception as e:  # pragma: no cover
             db.session.rollback()
             logger.error("Error deleting record: %s", self)
             raise DataValidationError(e) from e
@@ -110,66 +115,84 @@ class Promotion(db.Model):
             "end_date": self.end_date.isoformat() if self.end_date else None,
         }
 
+    # ---------------------- helpers (降低圈复杂度) ----------------------
+
+    @staticmethod
+    def _require_mapping(data):
+        if not isinstance(data, Mapping):
+            raise DataValidationError("Invalid attribute: data must be a mapping/dict")
+
+    @staticmethod
+    def _require_str(data: Mapping, key: str) -> str:
+        if key not in data:
+            raise DataValidationError(f"Invalid promotion: missing {key}")
+        val = data[key]
+        if not isinstance(val, str):
+            raise DataValidationError(f"Field '{key}' must be a string")
+        return val
+
+    @staticmethod
+    def _require_int(data: Mapping, key: str) -> int:
+        if key not in data:
+            raise DataValidationError(f"Invalid promotion: missing {key}")
+        val = data[key]
+        if not isinstance(val, int):
+            raise DataValidationError(f"Invalid type for integer [{key}]: {type(val)}")
+        return val
+
+    @staticmethod
+    def _require_iso_date(data: Mapping, key: str) -> date:
+        if key not in data:
+            raise DataValidationError(f"Invalid promotion: missing {key}")
+        raw = data[key]
+        try:
+            return date.fromisoformat(raw)
+        except Exception as e:
+            raise DataValidationError(
+                f"Field '{key}' must be an ISO date (YYYY-MM-DD)"
+            ) from e
+
+    def _validate_promotion_type(self, ptype: str) -> str:
+        if ptype not in self.ALLOWED_PROMOTION_TYPES:
+            raise DataValidationError(
+                f"Invalid promotion_type '{ptype}'. "
+                f"Allowed: {sorted(self.ALLOWED_PROMOTION_TYPES)}"
+            )
+        return ptype
+
+    @staticmethod
+    def _validate_value(value: int) -> int:
+        if value < 0:
+            raise DataValidationError("Invalid value: must be >= 0")
+        return value
+
+    @staticmethod
+    def _validate_product_id(pid: int) -> int:
+        if pid <= 0:
+            raise DataValidationError("Invalid product_id: must be > 0")
+        return pid
+
+    # ---------------------- public API ----------------------
+
     def deserialize(self, data: dict):
         """
         Deserializes a Promotion from a dictionary and validates business rules.
-
-        Business constraints enforced:
-          - value must be non-negative (>= 0)
-          - product_id must be a positive integer (> 0)
-          - promotion_type must be one of ALLOWED_PROMOTION_TYPES
         """
-        try:
-            # --- Required fields ---
-            self.name = data["name"]
+        self._require_mapping(data)
 
-            # promotion_type: enumerated allowed values (no normalization)
-            ptype = data["promotion_type"]
-            if not isinstance(ptype, str):
-                raise DataValidationError(
-                    "Invalid type for string [promotion_type]: " + str(type(ptype))
-                )
-            if ptype not in self.ALLOWED_PROMOTION_TYPES:
-                raise DataValidationError(
-                    f"Invalid promotion_type '{ptype}'. "
-                    f"Allowed: {sorted(self.ALLOWED_PROMOTION_TYPES)}"
-                )
-            self.promotion_type = ptype
+        # required fields
+        self.name = self._require_str(data, "name")
+        ptype = self._require_str(data, "promotion_type")
+        self.promotion_type = self._validate_promotion_type(ptype)
 
-            # value: int and >= 0
-            if not isinstance(data["value"], int):
-                raise DataValidationError(
-                    "Invalid type for integer [value]: " + str(type(data["value"]))
-                )
-            if data["value"] < 0:
-                raise DataValidationError("Invalid value: must be >= 0")
-            self.value = data["value"]
+        value = self._require_int(data, "value")
+        self.value = self._validate_value(value)
 
-            # product_id: int and > 0
-            if not isinstance(data["product_id"], int):
-                raise DataValidationError(
-                    "Invalid type for integer [product_id]: "
-                    + str(type(data["product_id"]))
-                )
-            if data["product_id"] <= 0:
-                raise DataValidationError("Invalid product_id: must be > 0")
-            self.product_id = data["product_id"]
+        pid = self._require_int(data, "product_id")
+        self.product_id = self._validate_product_id(pid)
 
-            # dates: ISO-8601
-            self.start_date = date.fromisoformat(data["start_date"])
-            self.end_date = date.fromisoformat(data["end_date"])
-
-        except AttributeError as error:
-            raise DataValidationError("Invalid attribute: " + error.args[0]) from error
-        except KeyError as error:
-            raise DataValidationError(
-                "Invalid promotion: missing " + error.args[0]
-            ) from error
-        except (TypeError, ValueError) as error:
-            raise DataValidationError(
-                "Invalid promotion: body of request contained bad or no data "
-                + str(error)
-            ) from error
+        self.start_date = self._require_iso_date(data, "start_date")
+        self.end_date = self._require_iso_date(data, "end_date")
 
         return self
 
@@ -178,13 +201,13 @@ class Promotion(db.Model):
     ##################################################
 
     @classmethod
-    def all(cls):
+    def all(cls) -> List["Promotion"]:
         """Returns all Promotions in the database (as a list)."""
         logger.info("Processing all Promotions")
         return cls.query.all()
 
     @classmethod
-    def find(cls, by_id):
+    def find(cls, by_id: Union[int, str]) -> Optional["Promotion"]:
         """Finds a Promotion by its ID (single object or None)."""
         logger.info("Processing lookup for id %s ...", by_id)
         try:
@@ -194,7 +217,7 @@ class Promotion(db.Model):
         return cls.query.session.get(cls, pid)
 
     @classmethod
-    def find_by_name(cls, name):
+    def find_by_name(cls, name: str):
         """
         Returns a SQLAlchemy Query filtered by name.
 
@@ -205,7 +228,7 @@ class Promotion(db.Model):
         return cls.query.filter(cls.name == name)
 
     @classmethod
-    def find_by_promotion_type(cls, promotion_type: str):
+    def find_by_promotion_type(cls, promotion_type: str) -> List["Promotion"]:
         """Returns all Promotions that match the given promotion_type exactly (as a list)."""
         logger.info("Processing promotion_type query for %s ...", promotion_type)
         return cls.query.filter(cls.promotion_type == promotion_type).all()
@@ -235,7 +258,7 @@ class Promotion(db.Model):
         logger.info("Processing id query for %s ...", promotion_id)
         try:
             pid = int(promotion_id)
-            promotion = cls.query.session.get(cls, pid)
-            return [promotion] if promotion else []
         except (ValueError, TypeError):
             return []
+        promotion = cls.query.session.get(cls, pid)
+        return [promotion] if promotion else []

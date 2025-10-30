@@ -23,7 +23,7 @@ import os
 import logging
 from unittest import TestCase
 from unittest.mock import patch
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 
@@ -132,8 +132,7 @@ class TestPromotionModel(TestCaseBase):
     def test_deserialize_a_promotion(self):
         """It should de-serialize a Promotion"""
         data = PromotionFactory().serialize()
-        # factories include id; remove for deserialize()
-        data.pop("id", None)
+        data.pop("id", None)  # factories include id; remove for deserialize()
         promotion = Promotion()
         promotion.deserialize(data)
         self.assertIsNotNone(promotion)
@@ -187,14 +186,12 @@ class TestPromotionModel(TestCaseBase):
     def test_deserialize_attribute_error(self):
         """It should not deserialize with attribute error"""
         promotion = Promotion()
-        # This should trigger AttributeError -> DataValidationError
         with self.assertRaises(DataValidationError):
             promotion.deserialize({"invalid_field": "value"})
 
     def test_deserialize_key_error(self):
         """It should not deserialize with missing key"""
         promotion = Promotion()
-        # Missing required fields should trigger KeyError -> DataValidationError
         with self.assertRaises(DataValidationError):
             promotion.deserialize({"name": "Test"})  # Missing other required fields
 
@@ -216,23 +213,17 @@ class TestExceptionHandlers(TestCaseBase):
     @patch("service.models.db.session.commit")
     def test_update_exception(self, mock_commit):
         """It should catch a update exception"""
-        # First create the promotion normally
         promotion = PromotionFactory()
         promotion.create()
         promotion.name = "Updated Name"
-
-        # Then mock only the update call
         mock_commit.side_effect = Exception("Database error")
         self.assertRaises(DataValidationError, promotion.update)
 
     @patch("service.models.db.session.commit")
     def test_delete_exception(self, mock_commit):
         """It should catch a delete exception"""
-        # First create the promotion normally
         promotion = PromotionFactory()
         promotion.create()
-
-        # Then mock only the delete call
         mock_commit.side_effect = Exception("Database error")
         self.assertRaises(DataValidationError, promotion.delete)
 
@@ -250,9 +241,7 @@ class TestModelQueries(TestCaseBase):
             promotion = PromotionFactory()
             promotion.create()
             promotions.append(promotion)
-        # make sure they got saved
         self.assertEqual(len(Promotion.all()), 5)
-        # find the 2nd promotion in the list
         promotion = Promotion.find(promotions[1].id)
         self.assertIsNotNone(promotion)
         self.assertEqual(promotion.id, promotions[1].id)
@@ -333,15 +322,12 @@ def test_deserialize_bad_promotion_type():
     promo = Promotion()
     with pytest.raises(DataValidationError):
         promo.deserialize(p)
-        # ---------- Extra coverage for model helpers ----------
 
-from datetime import date, timedelta
-from service.models import Promotion
-from tests.factories import PromotionFactory
 
+# ---------- Extra coverage for model helpers ----------
 
 def test_model_find_active_helper_direct():
-    """直接调用 find_active() 覆盖模型层活跃查询"""
+    """Call find_active() directly to cover model active filter"""
     today = date.today()
 
     active = PromotionFactory(
@@ -376,7 +362,7 @@ def test_model_find_active_helper_direct():
 
 
 def test_model_find_by_product_id_and_type_helpers_direct():
-    """直接调用 find_by_product_id / find_by_promotion_type 提升覆盖率"""
+    """Call find_by_product_id and find_by_promotion_type to boost coverage"""
     p1 = PromotionFactory(promotion_type="AMOUNT_OFF", product_id=92001)
     p1.create()
     p2 = PromotionFactory(promotion_type="BOGO", product_id=92002)
@@ -389,4 +375,3 @@ def test_model_find_by_product_id_and_type_helpers_direct():
     by_type = Promotion.find_by_promotion_type("BOGO")
     assert isinstance(by_type, list)
     assert any(p.id == p2.id for p in by_type)
-

@@ -1,7 +1,6 @@
 # ======== promotions-master/.dockerignore ========
 .git
 .github
-.devcontainer
 __pycache__/
 *.pyc
 .env

@@ -17,6 +17,7 @@ ui_bp = Blueprint(
     static_url_path="/ui/static",
 )
 
+
 @ui_bp.route("/ui", methods=["GET"])
 def index():
     """Admin UI entry point (skeleton page)."""

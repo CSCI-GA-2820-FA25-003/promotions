@@ -104,6 +104,70 @@
     </div>
   </div>
 
+  <!-- Edit Promotion Modal -->
+  <div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <form id="editForm" novalidate>
+          <div class="modal-header">
+            <h5 class="modal-title" id="editModalLabel">Edit Promotion</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+
+          <div class="modal-body">
+            <div id="editError" class="alert alert-danger d-none" role="alert"></div>
+
+            <input type="hidden" id="editId" />
+
+            <div class="mb-3">
+              <label for="editName" class="form-label">Name</label>
+              <input id="editName" name="name" class="form-control" required />
+              <div class="invalid-feedback">Name is required</div>
+            </div>
+
+            <div class="mb-3">
+              <label for="editType" class="form-label">Type</label>
+              <select id="editType" name="promotion_type" class="form-select" required>
+                <option value="">Select type</option>
+                <option value="PERCENT">PERCENT</option>
+                <option value="DISCOUNT">DISCOUNT</option>
+                <option value="BOGO">BOGO</option>
+              </select>
+              <div class="invalid-feedback">Type is required</div>
+            </div>
+
+            <div class="mb-3">
+              <label for="editValue" class="form-label">Value</label>
+              <input id="editValue" name="value" type="number" min="0" class="form-control" required />
+              <div class="invalid-feedback">Value is required (>= 0)</div>
+            </div>
+
+            <div class="mb-3">
+              <label for="editProductId" class="form-label">Product ID</label>
+              <input id="editProductId" name="product_id" class="form-control" />
+            </div>
+
+            <div class="row">
+              <div class="col mb-3">
+                <label for="editStart" class="form-label">Start Date</label>
+                <input id="editStart" name="start_date" type="date" class="form-control" />
+              </div>
+              <div class="col mb-3">
+                <label for="editEnd" class="form-label">End Date</label>
+                <input id="editEnd" name="end_date" type="date" class="form-control" />
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button id="editSubmit" type="submit" class="btn btn-primary">Update</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <!-- Delete Confirmation Modal -->
   <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">

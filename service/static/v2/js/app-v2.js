@@ -82,8 +82,12 @@
         '<td class="text-center">' + productId + '</td>',
         '<td class="text-center">' + startDate + '</td>',
         '<td class="text-center">' + endDate + '</td>',
-        '<td class="text-center">' +
-          '<button class="delete-btn" data-id="' + id + '" data-name="' + name + '">' +
+        '<td class="text-center" style="white-space: nowrap;">' +
+          '<button class="edit-btn" data-id="' + id + '" data-promotion=\'' + JSON.stringify(p) + '\'>' +
+            '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-pencil" viewBox="0 0 16 16">' +
+              '<path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>' +
+            '</svg>' +
+          '</button><button class="delete-btn" data-id="' + id + '" data-name="' + name + '">' +
             '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16">' +
               '<path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/>' +
               '<path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/>' +
@@ -424,6 +428,240 @@
         }
       });
     }
+  })();
+
+  /* -------------------------
+     Edit modal: logic
+  ------------------------- */
+  (function initEditModal() {
+    var editModalEl = $id('editModal');
+    var editModal = null;
+    if (editModalEl && window.bootstrap && window.bootstrap.Modal) {
+      try {
+        editModal = new bootstrap.Modal(editModalEl, {});
+      } catch (e) {
+        console.warn('Bootstrap Modal init failed', e);
+      }
+    }
+
+    var currentEditId = null;
+
+    // Clear edit form errors
+    function clearEditFieldErrors() {
+      var ids = ['editName', 'editType', 'editValue', 'editProductId', 'editStart', 'editEnd'];
+      ids.forEach(function (id) {
+        var el = $id(id);
+        if (el) {
+          el.classList.remove('is-invalid');
+        }
+      });
+      var ee = $id('editError');
+      if (ee) { ee.classList.add('d-none'); ee.textContent = ''; }
+    }
+
+    function showEditFieldError(fieldId, message) {
+      var el = $id(fieldId);
+      if (!el) return;
+      el.classList.add('is-invalid');
+      var fb = el.nextElementSibling;
+      if (fb && fb.classList && fb.classList.contains('invalid-feedback')) {
+        fb.textContent = message;
+      } else {
+        var ee = $id('editError');
+        if (ee) { ee.classList.remove('d-none'); ee.textContent = message; }
+      }
+    }
+
+    // Event delegation for edit buttons
+    document.addEventListener('click', function (e) {
+      if (e.target && e.target.closest('.edit-btn')) {
+        var btn = e.target.closest('.edit-btn');
+        var id = btn.getAttribute('data-id');
+        var promotionJson = btn.getAttribute('data-promotion');
+
+        try {
+          var promotion = JSON.parse(promotionJson);
+
+          // Populate form fields
+          $id('editId').value = id;
+          $id('editName').value = promotion.name || '';
+          $id('editType').value = promotion.promotion_type || '';
+          $id('editValue').value = promotion.value || '';
+          $id('editProductId').value = promotion.product_id || '';
+          $id('editStart').value = formatDateShort(promotion.start_date) || '';
+          $id('editEnd').value = formatDateShort(promotion.end_date) || '';
+
+          currentEditId = id;
+          clearEditFieldErrors();
+
+          // Show modal
+          if (editModal) {
+            editModal.show();
+          }
+        } catch (err) {
+          console.error('Failed to parse promotion data:', err);
+          alert('Failed to load promotion data');
+        }
+      }
+    });
+
+    // Handle modal close event
+    if (editModalEl) {
+      editModalEl.addEventListener('hidden.bs.modal', function () {
+        var form = $id('editForm');
+        if (form) {
+          form.reset();
+          form.classList.remove('was-validated');
+        }
+        clearEditFieldErrors();
+        currentEditId = null;
+      });
+    }
+
+    // Handle form submission
+    var editForm = $id('editForm');
+    if (!editForm) return;
+
+    editForm.addEventListener('submit', async function (ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+
+      editForm.classList.add('was-validated');
+
+      // Basic HTML5 validity
+      if (!editForm.checkValidity()) {
+        return;
+      }
+
+      if (!currentEditId) {
+        alert('No promotion ID found');
+        return;
+      }
+
+      // Gather and coerce fields
+      clearEditFieldErrors();
+
+      var rawName = ($id('editName').value || '').trim();
+      var rawType = ($id('editType').value || '').trim();
+      var rawValue = $id('editValue').value;
+      var rawProductId = ($id('editProductId').value || '').trim();
+      var rawStart = $id('editStart').value || '';
+      var rawEnd = $id('editEnd').value || '';
+
+      // product_id: if provided, must be integer
+      var productId = null;
+      if (rawProductId !== '') {
+        var parsedPid = parseInt(rawProductId, 10);
+        if (Number.isNaN(parsedPid) || !Number.isFinite(parsedPid)) {
+          showEditFieldError('editProductId', 'Product ID must be an integer');
+          return;
+        }
+        productId = parsedPid;
+      } else {
+        productId = null;
+      }
+
+      // value coercion
+      var valueNum = Number(rawValue);
+      if (!Number.isFinite(valueNum) || valueNum < 0) {
+        showEditFieldError('editValue', 'Value must be a non-negative number');
+        return;
+      }
+
+      // normalize dates
+      var startDate = normalizeDateInput(rawStart);
+      var endDate = normalizeDateInput(rawEnd);
+
+      var payload = {
+        name: rawName || null,
+        promotion_type: rawType || null,
+        value: valueNum,
+        product_id: productId,
+        start_date: startDate,
+        end_date: endDate
+      };
+
+      // UI: disable submit
+      var submitBtn = $id('editSubmit');
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Updating...';
+      }
+      editForm.setAttribute('aria-busy', 'true');
+
+      try {
+        var res = await fetch('/promotions/' + currentEditId, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          // Try to parse structured errors
+          var errText = '';
+          try {
+            var errJson = await res.json();
+            if (errJson) {
+              if (errJson.errors && typeof errJson.errors === 'object') {
+                for (var f in errJson.errors) {
+                  var fid = 'edit' + f.split('_').map(function (s) { return s.charAt(0).toUpperCase() + s.slice(1); }).join('');
+                  if ($id(fid)) {
+                    showEditFieldError(fid, errJson.errors[f]);
+                  } else {
+                    var ee = $id('editError');
+                    if (ee) { ee.classList.remove('d-none'); ee.textContent += (errJson.errors[f] + '\n'); }
+                  }
+                }
+              } else if (errJson.message) {
+                errText = errJson.message;
+              } else {
+                errText = JSON.stringify(errJson);
+              }
+            }
+          } catch (e) {
+            try { errText = await res.text(); } catch (e2) { errText = 'HTTP ' + res.status; }
+          }
+          if (errText) {
+            var ee2 = $id('editError');
+            if (ee2) { ee2.classList.remove('d-none'); ee2.textContent = errText; }
+          }
+          throw new Error(errText || ('HTTP ' + res.status));
+        }
+
+        // Success
+        var updated = null;
+        try { updated = await res.json(); } catch (e) { updated = null; }
+        if (editModal) {
+          try { editModal.hide(); } catch (e) { /* ignore */ }
+        } else {
+          var btnClose = document.querySelector('#editModal .btn-close');
+          if (btnClose) btnClose.click();
+        }
+
+        // Refresh table
+        try {
+          if (typeof loadPromotions === 'function') loadPromotions();
+        } catch (e) { console.warn('reload failed', e); }
+
+        // Show toast
+        showSuccessToast('Promotion updated');
+
+      } catch (err) {
+        console.error('Update failed:', err);
+        var ee3 = $id('editError');
+        if (ee3 && ee3.classList.contains('d-none')) {
+          ee3.classList.remove('d-none');
+          ee3.textContent = err.message || String(err);
+        }
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Update';
+        }
+        editForm.removeAttribute('aria-busy');
+      }
+    });
   })();
 
   // end of IIFE

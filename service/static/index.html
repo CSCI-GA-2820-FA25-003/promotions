@@ -1,9 +1,9 @@
-<!-- service/templates/index.html -->
+<!-- service/static/index.html -->
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>{{ title or "Promotions Admin" }}</title>
+  <title>Promotions Admin</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <!-- Prevent stale static assets in headless browser caches -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
@@ -27,7 +27,7 @@
 </head>
 <body>
   <header>
-    <h1 id="title">{{ title or "Promotions Admin" }}</h1>
+    <h1 id="title">Promotions Admin</h1>
     <p class="muted">Administrator console – Create/List will expand in R4‑03…R4‑09</p>
   </header>
   <main>
@@ -53,6 +53,6 @@
     </section>
   </main>
   <!-- Always fetch the Blueprint static JS (not app-level /static) and bust cache -->
-  <script src="{{ url_for('ui.static', filename='js/app.js') }}?v={{ ui_version }}"></script>
+  <script src="js/app.js"></script>
 </body>
 </html>

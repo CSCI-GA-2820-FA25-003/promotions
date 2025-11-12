@@ -318,60 +318,47 @@ def step_impl(context: Any, button_text: str) -> None:
 
 @when('I fill the create form with:')
 def step_impl(context: Any) -> None:
-    """Fill the create form with data from table (key-value pairs)"""
-
-    # Map field names to input IDs in the v2 modal
-    field_map = {
-        'name': 'inputName',
-        'promotion_type': 'inputType',
-        'value': 'inputValue',
-        'product_id': 'inputProductId',
-        'start_date': 'inputStart',
-        'end_date': 'inputEnd'
-    }
-
-    # The table is in key-value format without headers
-    # In behave, the first row is treated as headers, so we need to process it as data too
+    """Fill the create form with data from table (horizontal format with headers)"""
     import time
 
-    def fill_field(field_name: str, field_value: str) -> None:
-        """Fill a form field using appropriate Selenium method"""
-        element_id = field_map.get(field_name)
-        if not element_id:
-            raise AssertionError(f"Unknown field: {field_name}")
+    # Map column headers to input IDs in the v2 modal
+    field_map = {
+        'Name':            'inputName',
+        'Promotion Type':  'inputType',
+        'Value':           'inputValue',
+        'Product ID':      'inputProductId',
+        'Start Date':      'inputStart',
+        'End Date':        'inputEnd'
+    }
 
-        element = WebDriverWait(context.browser, context.wait_seconds).until(
-            expected_conditions.presence_of_element_located((By.ID, element_id))
-        )
-
-        # Handle different field types
-        if field_name == 'promotion_type':
-            # Use Select for dropdown
-            select = Select(element)
-            select.select_by_value(field_value)
-        elif field_name in ['start_date', 'end_date']:
-            # For date inputs, use JavaScript to set value directly
-            context.browser.execute_script(
-                "arguments[0].value = arguments[1];", element, field_value
-            )
-        else:
-            # For text and number inputs, use standard clear + send_keys
-            element.clear()
-            element.send_keys(field_value)
-
-        time.sleep(0.1)
-
-    # Process the header row as the first data row
-    if context.table.headings:
-        field_name = context.table.headings[0]
-        field_value = context.table.headings[1]
-        fill_field(field_name, field_value)
-
-    # Process the rest of the rows
+    # Process the first (and typically only) data row
     for row in context.table:
-        field_name = row[0]
-        field_value = row[1]
-        fill_field(field_name, field_value)
+        for header in context.table.headings:
+            element_id = field_map.get(header)
+            if not element_id:
+                raise AssertionError(f"Unknown field header: {header}")
+
+            field_value = row[header]
+            element = WebDriverWait(context.browser, context.wait_seconds).until(
+                expected_conditions.presence_of_element_located((By.ID, element_id))
+            )
+
+            # Handle different field types
+            if header == 'Promotion Type':
+                # Use Select for dropdown
+                select = Select(element)
+                select.select_by_value(field_value)
+            elif header in ['Start Date', 'End Date']:
+                # For date inputs, use JavaScript to set value directly
+                context.browser.execute_script(
+                    "arguments[0].value = arguments[1];", element, field_value
+                )
+            else:
+                # For text and number inputs, use standard clear + send_keys
+                element.clear()
+                element.send_keys(field_value)
+
+            time.sleep(0.1)
 
 
 @when('I submit the create form')
@@ -467,3 +454,112 @@ def step_impl(context: Any, name: str) -> None:
     table_text = table.text
 
     assert name not in table_text, f"Promotion '{name}' is still visible in the table"
+
+
+##################################################################
+# V2 Edit Steps
+##################################################################
+
+
+@when('I click the edit button for "{name}"')
+def step_impl(context: Any, name: str) -> None:
+    """Click the edit button for a specific promotion by name"""
+    import time
+
+    # Find all edit buttons
+    edit_buttons = context.browser.find_elements(By.CLASS_NAME, "edit-btn")
+
+    # Find the button with matching promotion data
+    for button in edit_buttons:
+        promotion_json = button.get_attribute("data-promotion")
+        if promotion_json:
+            import json
+            try:
+                promotion = json.loads(promotion_json)
+                if promotion.get('name') == name:
+                    button.click()
+                    time.sleep(0.5)  # Wait for modal to appear
+                    return
+            except json.JSONDecodeError:
+                continue
+
+    raise AssertionError(f"Edit button for '{name}' not found")
+
+
+@then('I should see the edit modal')
+def step_impl(context: Any) -> None:
+    """Verify the edit modal is visible"""
+    modal = WebDriverWait(context.browser, context.wait_seconds).until(
+        expected_conditions.visibility_of_element_located((By.ID, "editModal"))
+    )
+    assert modal.is_displayed(), "Edit modal is not visible"
+
+    # Verify the modal has the correct title
+    modal_title = context.browser.find_element(By.ID, "editModalLabel").text
+    logging.info(f"Edit modal is showing with title: {modal_title}")
+
+
+@when('I fill the edit form with:')
+def step_impl(context: Any) -> None:
+    """Fill the edit form with data from table (key-value pairs)"""
+
+    # Map field names to input IDs in the v2 edit modal
+    field_map = {
+        'name': 'editName',
+        'promotion_type': 'editType',
+        'value': 'editValue',
+        'product_id': 'editProductId',
+        'start_date': 'editStart',
+        'end_date': 'editEnd'
+    }
+
+    for row in context.table:
+        
+        # Now, iterate over all the HEADERS from the Gherkin table
+        for header in context.table.headings:
+            
+            # 1. Normalize the header to match the field_map keys
+            #    e.g., "Promotion Type" -> "promotion_type"
+            field_key = header.lower().replace(' ', '_')
+
+            # 2. Get the value from the current row using the header
+            #    e.g., row["Promotion Type"] -> "PERCENT"
+            field_value = row[header]
+            
+            # 3. Find the corresponding element ID from our map
+            element_id = field_map.get(field_key)
+
+            if not element_id:
+                raise AssertionError(f"Unknown field: Gherkin header '{header}' (normalized to '{field_key}') not in field_map")
+
+            # 4. Find the element
+            element = WebDriverWait(context.browser, context.wait_seconds).until(
+                expected_conditions.presence_of_element_located((By.ID, element_id))
+            )
+
+            # 5. Fill the element using the robust methods
+            if field_key == 'promotion_type':
+                # Use Select for dropdown
+                select = Select(element)
+                select.select_by_value(field_value)
+            else:
+                # Use JavaScript to set value for all text/date/number fields
+                # This is much more reliable than element.clear() + send_keys()
+                context.browser.execute_script(
+                    "arguments[0].value = arguments[1];", element, field_value
+                )
+
+
+@when('I submit the edit form')
+def step_impl(context: Any) -> None:
+    """Submit the edit form"""
+    submit_button = WebDriverWait(context.browser, context.wait_seconds).until(
+        expected_conditions.element_to_be_clickable((By.ID, "editSubmit"))
+    )
+    submit_button.click()
+
+    # Wait for the modal to disappear
+    modal_element = context.browser.find_element(By.ID, "editModal")
+    WebDriverWait(context.browser, context.wait_seconds).until(
+        expected_conditions.invisibility_of_element(modal_element)
+    )

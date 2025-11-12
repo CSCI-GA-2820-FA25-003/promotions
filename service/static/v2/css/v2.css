@@ -84,7 +84,8 @@ body {
   border-top: none;
 }
 
-/* ===== Delete Button Styles ===== */
+/* ===== Action Button Styles ===== */
+.edit-btn,
 .delete-btn {
   border-radius: 0.25rem;
   padding: 0.5rem;
@@ -97,14 +98,18 @@ body {
   background: #f8f9fa;
   color: #6c757d;
   transition: all 0.15s ease;
+  vertical-align: middle;
+  margin: 0 0.25rem;
 }
 
+.edit-btn:hover,
 .delete-btn:hover {
   background: #e9ecef;
   border-color: #adb5bd;
   color: #495057;
 }
 
+.edit-btn svg,
 .delete-btn svg {
   width: 20px;
   height: 20px;

@@ -52,8 +52,17 @@ def _parse_bool_strict(value: str):
 ######################################################################
 # Root endpoint
 ######################################################################
-@app.route("/", methods=["GET"])
+@app.route("/")
 def index():
+    """Return the static UI"""
+    return app.send_static_file("index.html")
+
+
+######################################################################
+# API endpoint
+######################################################################
+@app.route("/api")
+def api_index():
     """Root URL response"""
     return (
         jsonify(

@@ -61,6 +61,47 @@ def save_screenshot(context: Any, filename: str) -> None:
     context.browser.save_screenshot(f"./captures/{filename}.png")
 
 
+import requests
+
+@given('the following promotions')
+def step_impl(context):
+    """
+    Loads the promotions into the database
+    """
+    headers = {'Content-Type': 'application/json'}
+    for row in context.table:
+        payload = {
+            "name": row['Name'],
+            "promotion_type": row['Promotion Type'],
+            "value": int(row['Value']),
+            "product_id": int(row['Product ID']),
+            "start_date": row['Start Date'],
+            "end_date": row['End Date']
+        }
+        context.resp = requests.post(context.base_url + '/promotions', json=payload, headers=headers)
+        assert context.resp.status_code == 201
+
+@when('I retrieve the promotion named "{name}"')
+def step_impl(context, name):
+    """
+    Retrieves a promotion by name and populates the form
+    """
+    headers = {'Content-Type': 'application/json'}
+    context.resp = requests.get(context.base_url + '/promotions', params={'name': name}, headers=headers)
+    assert context.resp.status_code == 200
+    data = context.resp.json()
+    assert len(data) > 0
+    promotion = data[0]
+
+    # Populate the form
+    context.browser.find_element(By.ID, "promotion_id").send_keys(promotion['id'])
+    context.browser.find_element(By.ID, "promotion_name").send_keys(promotion['name'])
+    context.browser.find_element(By.ID, "promotion_promotion_type").send_keys(promotion['promotion_type'])
+    context.browser.find_element(By.ID, "promotion_value").send_keys(promotion['value'])
+    context.browser.find_element(By.ID, "promotion_product_id").send_keys(promotion['product_id'])
+    context.browser.find_element(By.ID, "promotion_start_date").send_keys(promotion['start_date'])
+    context.browser.find_element(By.ID, "promotion_end_date").send_keys(promotion['end_date'])
+
 @when('I visit the "Home Page"')
 def step_impl(context: Any) -> None:
     """Make a call to the base URL"""

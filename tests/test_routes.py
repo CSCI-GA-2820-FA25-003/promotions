@@ -35,12 +35,12 @@ BASE_URL = "/promotions"
 def make_payload(**overrides) -> dict:
     """Build a valid promotion JSON payload"""
     base = {
-        "name": "NYU Demo",
-        "promotion_type": "AMOUNT_OFF",
+        "name": "Black Friday Sale",
+        "promotion_type": "DISCOUNT",
         "value": 10,
         "product_id": 123,
-        "start_date": "2025-10-01",
-        "end_date": "2025-10-31",
+        "start_date": "2025-11-28",
+        "end_date": "2025-11-30",
     }
     base.update(overrides)
     return base
@@ -511,7 +511,7 @@ def test_update_promotion_success():
     # create one
     payload = {
         "name": "Promo A",
-        "promotion_type": "Percentage off",
+        "promotion_type": "PERCENT",
         "value": 10,
         "product_id": 111,
         "start_date": "2025-10-01",
@@ -522,11 +522,11 @@ def test_update_promotion_success():
     pid = created.get_json()["id"]
 
     # update it
-    payload["name"] = "Promo A+"
+    payload["name"] = "Member Exclusive"
     resp = client.put(f"/promotions/{pid}", json=payload)
     assert resp.status_code == 200
     body = resp.get_json()
-    assert body["name"] == "Promo A+"
+    assert body["name"] == "Member Exclusive"
 
 
 def test_update_promotion_not_found():
@@ -535,7 +535,7 @@ def test_update_promotion_not_found():
 
     payload = {
         "name": "Ghost",
-        "promotion_type": "Percentage off",
+        "promotion_type": "PERCENT",
         "value": 5,
         "product_id": 222,
         "start_date": "2025-10-01",
@@ -551,16 +551,16 @@ def test_update_promotion_id_mismatch_returns_400():
     """It should return 400 when body.id != path id"""
     client = app.test_client()
     created = client.post("/promotions", json={
-        "name": "Mismatch", "promotion_type": "X", "value": 1, "product_id": 9,
-        "start_date": "2025-10-01", "end_date": "2025-10-31",
+        "name": "Summer Clearance", "promotion_type": "BOGO", "value": 1, "product_id": 9,
+        "start_date": "2025-08-15", "end_date": "2025-08-31",
     })
     assert created.status_code == 201
     pid = created.get_json()["id"]
 
     payload = {
         "id": pid + 1,  # mismatch on purpose
-        "name": "Mismatch", "promotion_type": "X", "value": 1, "product_id": 9,
-        "start_date": "2025-10-01", "end_date": "2025-10-31",
+        "name": "Summer Clearance", "promotion_type": "BOGO", "value": 1, "product_id": 9,
+        "start_date": "2025-08-15", "end_date": "2025-08-31",
     }
     resp = client.put(f"/promotions/{pid}", json=payload)
     assert resp.status_code == 400
@@ -572,20 +572,20 @@ def test_list_promotions_all_returns_list():
 
     # ensure at least 2 items
     a = {
-        "name": "ListA",
-        "promotion_type": "TypeA",
+        "name": "New Year Sale",
+        "promotion_type": "PERCENT",
         "value": 1,
         "product_id": 1,
-        "start_date": "2025-10-01",
-        "end_date": "2025-10-31",
+        "start_date": "2025-12-31",
+        "end_date": "2026-01-07",
     }
     b = {
-        "name": "ListB",
-        "promotion_type": "TypeB",
+        "name": "Spring Festival",
+        "promotion_type": "DISCOUNT",
         "value": 2,
         "product_id": 2,
-        "start_date": "2025-10-01",
-        "end_date": "2025-10-31",
+        "start_date": "2025-01-28",
+        "end_date": "2025-02-05",
     }
     client.post("/promotions", json=a)
     client.post("/promotions", json=b)

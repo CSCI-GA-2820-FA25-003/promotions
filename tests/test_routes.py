@@ -49,6 +49,7 @@ def make_payload(**overrides) -> dict:
 ######################################################################
 #  H A P P Y   P A T H S
 ######################################################################
+# pylint: disable=too-many-public-methods
 class TestPromotionService(TestCase):
     """REST API Server Tests"""
 

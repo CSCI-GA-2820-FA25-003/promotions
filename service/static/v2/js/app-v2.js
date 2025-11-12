@@ -697,6 +697,60 @@
 
     var searchTimeout = null;
 
+    // Initialize filters from URL on page load
+    function initFromUrl() {
+      var urlParams = new URLSearchParams(window.location.search);
+
+      if (urlParams.has('active')) {
+        var activeVal = urlParams.get('active');
+        if (activeVal === 'true') {
+          currentFilters.active = 'active';
+          filterPills.forEach(function (pill) {
+            pill.classList.remove('active');
+            if (pill.getAttribute('data-filter') === 'active') {
+              pill.classList.add('active');
+            }
+          });
+        } else if (activeVal === 'false') {
+          currentFilters.active = 'inactive';
+          filterPills.forEach(function (pill) {
+            pill.classList.remove('active');
+            if (pill.getAttribute('data-filter') === 'inactive') {
+              pill.classList.add('active');
+            }
+          });
+        }
+      } else if (urlParams.has('name')) {
+        currentFilters.name = urlParams.get('name');
+        if (searchInput) searchInput.value = currentFilters.name;
+      } else if (urlParams.has('promotion_type')) {
+        currentFilters.type = urlParams.get('promotion_type');
+        if (filterType) filterType.value = currentFilters.type;
+      } else if (urlParams.has('product_id')) {
+        currentFilters.productId = urlParams.get('product_id');
+        if (filterProductId) filterProductId.value = currentFilters.productId;
+      }
+    }
+
+    // Initialize from URL
+    initFromUrl();
+
+    // Handle browser back/forward buttons
+    window.addEventListener('popstate', function () {
+      // Reset filters
+      currentFilters.active = null;
+      currentFilters.name = null;
+      currentFilters.type = null;
+      currentFilters.productId = null;
+
+      // Reinitialize from URL
+      initFromUrl();
+
+      // Apply filters without updating URL (already changed by popstate)
+      var queryParams = window.location.search.substring(1);
+      loadPromotions(queryParams);
+    });
+
     function applyFilters() {
       var queryParams = '';
 
@@ -715,6 +769,13 @@
       } else if (currentFilters.productId) {
         queryParams = 'product_id=' + encodeURIComponent(currentFilters.productId);
       }
+
+      // Update browser URL
+      var newUrl = window.location.pathname;
+      if (queryParams) {
+        newUrl += '?' + queryParams;
+      }
+      window.history.pushState({}, '', newUrl);
 
       loadPromotions(queryParams);
     }
@@ -828,6 +889,9 @@
             pill.classList.add('active');
           }
         });
+
+        // Clear URL parameters
+        window.history.pushState({}, '', window.location.pathname);
 
         // Reload all promotions
         loadPromotions();

@@ -82,6 +82,12 @@ class TestPromotionService(TestCase):
         """It should call the home page"""
         resp = self.client.get("/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertIn(b"Promotions Admin", resp.data)
+
+    def test_api_index(self):
+        """It should call the API index"""
+        resp = self.client.get("/api")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
         data = resp.get_json()
         self.assertEqual(data["name"], "Promotions Service")
         self.assertEqual(data["version"], "1.0.0")

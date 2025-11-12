@@ -34,9 +34,9 @@ def _ui_client():
 
 
 def test_ui_route_returns_html_and_title(ui_client):
-    """Ensure `/ui` returns HTTP 200 with an HTML payload containing the title."""
+    """Ensure `/` returns HTTP 200 with an HTML payload containing the title."""
     # Act
-    resp = ui_client.get("/ui")
+    resp = ui_client.get("/")
 
     # Assert HTTP status and content-type
     assert resp.status_code == 200

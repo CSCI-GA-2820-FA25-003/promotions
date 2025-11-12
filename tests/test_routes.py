@@ -97,6 +97,16 @@ class TestPromotionService(TestCase):
         self.assertEqual(data["version"], "1.0.0")
         self.assertIn("promotions", data["paths"])
 
+    # ----- new tests for /v2 -----
+    def test_v2_route_returns_v2_html(self):
+        """It should return the v2 UI page"""
+        resp = self.client.get("/v2")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertIn(b"<html", resp.data)
+        self.assertTrue(b"Promotions Manager" in resp.data)
+        content_type = resp.headers.get("Content-Type")
+        self.assertIn("text/html", content_type)
+
     # ---------- Create ----------
     def test_create_promotion(self):
         """It should Create a new Promotion"""
@@ -662,7 +672,6 @@ class TestPatchErrorHandlersAndContentType(unittest.TestCase):
 
     def test_post_without_content_type_triggers_received_none(self):
         """Covers routes.check_content_type() 'received none' branch"""
-        # 关键点：不传 content_type，让 request.content_type 为 None
         resp = self.client.post(BASE_URL, data=b"{}")
         self.assertEqual(resp.status_code, status.HTTP_415_UNSUPPORTED_MEDIA_TYPE)
         msg = resp.get_json()["message"].lower()

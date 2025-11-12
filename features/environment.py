@@ -73,6 +73,9 @@ def before_all(context):
         or "http://localhost:8080"
     )
 
+    # Set wait time for WebDriverWait
+    context.wait_seconds = 10
+
     options = ChromeOptions()
     options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")

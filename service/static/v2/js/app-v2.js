@@ -58,7 +58,7 @@
     if (!tbody) return;
     tbody.innerHTML = '';
     if (!items || items.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No promotions available</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">No promotions available</td></tr>';
       var info0 = $id('page_info');
       if (info0) info0.textContent = '0 promotions';
       return;
@@ -81,7 +81,15 @@
         '<td class="text-center">' + value + '</td>',
         '<td class="text-center">' + productId + '</td>',
         '<td class="text-center">' + startDate + '</td>',
-        '<td class="text-center">' + endDate + '</td>'
+        '<td class="text-center">' + endDate + '</td>',
+        '<td class="text-center">' +
+          '<button class="delete-btn" data-id="' + id + '" data-name="' + name + '">' +
+            '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16">' +
+              '<path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/>' +
+              '<path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/>' +
+            '</svg>' +
+          '</button>' +
+        '</td>'
       ].join('');
       frag.appendChild(tr);
     });
@@ -338,6 +346,84 @@
         createForm.removeAttribute('aria-busy');
       }
     });
+  })();
+
+  /* -------------------------
+     Delete modal: logic
+  ------------------------- */
+  (function initDeleteModal() {
+    var deleteModalEl = $id('deleteModal');
+    var deleteModal = null;
+    if (deleteModalEl && window.bootstrap && window.bootstrap.Modal) {
+      try {
+        deleteModal = new bootstrap.Modal(deleteModalEl, {});
+      } catch (e) {
+        console.warn('Bootstrap Modal init failed', e);
+      }
+    }
+
+    var currentDeleteId = null;
+
+    // Event delegation for delete buttons
+    document.addEventListener('click', function (e) {
+      if (e.target && e.target.closest('.delete-btn')) {
+        var btn = e.target.closest('.delete-btn');
+        var id = btn.getAttribute('data-id');
+        var name = btn.getAttribute('data-name');
+
+        // Set modal content
+        $id('deletePromotionId').textContent = id;
+        $id('deletePromotionName').textContent = name;
+        currentDeleteId = id;
+
+        // Show modal
+        if (deleteModal) {
+          deleteModal.show();
+        }
+      }
+    });
+
+    // Confirm delete button handler
+    var confirmBtn = $id('confirmDelete');
+    if (confirmBtn) {
+      confirmBtn.addEventListener('click', async function () {
+        if (!currentDeleteId) return;
+
+        // Disable button
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = 'Deleting...';
+
+        try {
+          var res = await fetch('/promotions/' + currentDeleteId, {
+            method: 'DELETE',
+            credentials: 'same-origin'
+          });
+
+          if (!res.ok) {
+            throw new Error('DELETE failed: ' + res.status);
+          }
+
+          // Close modal
+          if (deleteModal) {
+            deleteModal.hide();
+          }
+
+          // Show success toast
+          showSuccessToast('Promotion deleted');
+
+          // Refresh table
+          if (typeof loadPromotions === 'function') loadPromotions();
+
+        } catch (err) {
+          console.error('Delete failed:', err);
+          alert('Failed to delete promotion: ' + err.message);
+        } finally {
+          confirmBtn.disabled = false;
+          confirmBtn.textContent = 'Delete';
+          currentDeleteId = null;
+        }
+      });
+    }
   })();
 
   // end of IIFE

@@ -397,3 +397,71 @@ def step_impl(context: Any, name: str) -> None:
         )
     )
     assert found, f"Promotion '{name}' not found in table"
+
+
+##################################################################
+# V2 Delete Steps
+##################################################################
+
+
+@when('I click the delete button for "{name}"')
+def step_impl(context: Any, name: str) -> None:
+    """Click the delete button for a specific promotion by name"""
+    import time
+
+    # Find all delete buttons
+    delete_buttons = context.browser.find_elements(By.CLASS_NAME, "delete-btn")
+
+    # Find the button with matching name in data-name attribute
+    for button in delete_buttons:
+        button_name = button.get_attribute("data-name")
+        if button_name == name:
+            button.click()
+            time.sleep(0.5)  # Wait for modal to appear
+            return
+
+    raise AssertionError(f"Delete button for '{name}' not found")
+
+
+@then('I should see the delete confirmation modal')
+def step_impl(context: Any) -> None:
+    """Verify the delete confirmation modal is visible"""
+    modal = WebDriverWait(context.browser, context.wait_seconds).until(
+        expected_conditions.visibility_of_element_located((By.ID, "deleteModal"))
+    )
+    assert modal.is_displayed(), "Delete confirmation modal is not visible"
+
+    # Verify the modal shows the correct promotion name
+    modal_name = context.browser.find_element(By.ID, "deletePromotionName").text
+    logging.info(f"Delete modal is showing for: {modal_name}")
+
+
+@when('I confirm the deletion')
+def step_impl(context: Any) -> None:
+    """Click the confirm delete button in the modal"""
+    import time
+
+    confirm_button = WebDriverWait(context.browser, context.wait_seconds).until(
+        expected_conditions.element_to_be_clickable((By.ID, "confirmDelete"))
+    )
+    confirm_button.click()
+
+    # Wait for modal to close
+    WebDriverWait(context.browser, context.wait_seconds).until(
+        expected_conditions.invisibility_of_element_located((By.ID, "deleteModal"))
+    )
+
+    # Wait for table to update
+    time.sleep(1.0)
+
+
+@then('I should not see "{name}" in the promotions table')
+def step_impl(context: Any, name: str) -> None:
+    """Verify the promotion is no longer in the table"""
+    import time
+    time.sleep(0.5)  # Give table time to update
+
+    table = context.browser.find_element(By.ID, "promotions_table")
+    table_text = table.text
+
+    assert name not in table_text, f"Promotion '{name}' is still visible in the table"

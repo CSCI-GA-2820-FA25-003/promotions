@@ -1,0 +1,19 @@
+/* service/static/v2/css/v2.css */
+body {
+  font-family: Inter, "Helvetica Neue", Arial, sans-serif;
+  padding-top: 8px;
+}
+
+.table thead th {
+  background: linear-gradient(180deg, #f8fafc, #f3f6fa);
+  font-weight: 600;
+}
+
+.card {
+  border-radius: 0.6rem;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
+}
+
+#page_info {
+  margin-top: 0.5rem;
+}

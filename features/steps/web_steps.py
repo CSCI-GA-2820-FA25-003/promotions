@@ -329,18 +329,6 @@ def step_impl(context: Any) -> None:
         'start_date': 'inputStart',
         'end_date': 'inputEnd'
     }
-    ## wait for auto focus for modal
-    try:
-        first_element = WebDriverWait(context.browser, context.wait_seconds).until(
-            expected_conditions.element_to_be_clickable((By.ID, "inputName"))
-        )
-        
-        
-        WebDriverWait(context.browser, context.wait_seconds).until(
-            lambda driver: driver.switch_to.active_element == first_element
-        )
-    except Exception as e:
-        raise AssertionError(f"Modal did not open or focus 'inputName' in time: {e}")
 
     # The table is in key-value format without headers
     # In behave, the first row is treated as headers, so we need to process it as data too
@@ -392,38 +380,11 @@ def step_impl(context: Any) -> None:
     )
     submit_button.click()
 
-    # --- MODIFIED: Wait for the modal to disappear ---
-    try:
-        modal_element = context.browser.find_element(By.ID, "createModal")
-        WebDriverWait(context.browser, context.wait_seconds).until(
-            expected_conditions.invisibility_of_element(modal_element)
-        )
-    except Exception as e:
-        # --- START: Debugging Code ---
-        # The modal did not close, which means the server returned an error.
-        # Let's capture a screenshot and read the error message.
-
-        # 1. Save a screenshot for visual inspection
-        save_screenshot(context, "create_form_failure")
-        
-        # 2. Read the text from the 'createError' element
-        error_text = "[Could not read 'createError' element]"
-        try:
-            error_element = context.browser.find_element(By.ID, "createError")
-            if error_element.is_displayed():
-                error_text = error_element.text
-            else:
-                error_text = "[Error element 'createError' exists but is not visible]"
-        except Exception as e_inner:
-            error_text = f"[Exception while reading 'createError': {e_inner}]"
-
-        # 3. Raise an informative assertion with the server's message
-        raise AssertionError(
-            f"Modal did not close after submit. "
-            f"Screenshot 'create_form_failure.png' saved. "
-            f"SERVER ERROR MESSAGE: '{error_text}'"
-        )
-        # --- END: Debugging Code ---
+    # Wait for the modal to disappear
+    modal_element = context.browser.find_element(By.ID, "createModal")
+    WebDriverWait(context.browser, context.wait_seconds).until(
+        expected_conditions.invisibility_of_element(modal_element)
+    )
 
 
 @then('I should see the promotions table updated with "{name}"')

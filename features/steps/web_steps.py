@@ -350,8 +350,10 @@ def step_impl(context: Any) -> None:
             select = Select(element)
             select.select_by_value(field_value)
         elif field_name in ['start_date', 'end_date']:
-            # For date inputs, send keys directly (don't clear)
-            element.send_keys(field_value)
+            # For date inputs, use JavaScript to set value directly
+            context.browser.execute_script(
+                "arguments[0].value = arguments[1];", element, field_value
+            )
         else:
             # For text and number inputs, use standard clear + send_keys
             element.clear()

@@ -8,6 +8,9 @@ Thumbs.db
 # TDD
 unittests.xml
 
+# BDD
+captures/
+
 # databases
 *.db
 db/*

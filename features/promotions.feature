@@ -31,3 +31,17 @@ Feature: Promotions Admin UI
     When I press the "Delete" button
     Then I should see the message "Promotion has been Deleted!"
     And I should not see "Summer Sale" in the results
+
+  Scenario: Create a promotion from v2 modal
+    Given the server is running
+    When I go to "/v2"
+    And I click "Create"
+    And I fill the create form with:
+      | name           | Winter Sale |
+      | promotion_type | PERCENT     |
+      | value          | 50          |
+      | product_id     | 9999        |
+      | start_date     | 2030-11-12  |
+      | end_date       | 2030-11-30  |
+    And I submit the create form
+    Then I should see the promotions table updated with "Winter Sale"

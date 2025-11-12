@@ -27,7 +27,7 @@ For information on Waiting until elements are present in the HTML see:
 import re
 import logging
 from typing import Any
-from behave import when, then  # pylint: disable=no-name-in-module
+from behave import given, when, then  # pylint: disable=no-name-in-module
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import Select, WebDriverWait
 from selenium.webdriver.support import expected_conditions
@@ -275,3 +275,164 @@ def step_impl(context: Any, element_name: str, text_string: str) -> None:
     )
     element.clear()
     element.send_keys(text_string)
+
+
+##################################################################
+# V2 Modal Steps for BDD Testing
+##################################################################
+
+
+@given('the server is running')
+def step_impl(context: Any) -> None:
+    """Verify the server is accessible"""
+    import requests
+    try:
+        response = requests.get(context.base_url, timeout=5)
+        assert response.status_code in [200, 404, 302]
+    except Exception as e:
+        raise AssertionError(f"Server is not running at {context.base_url}: {e}")
+
+
+@when('I go to "{path}"')
+def step_impl(context: Any, path: str) -> None:
+    """Navigate to a specific path"""
+    context.browser.get(context.base_url + path)
+    # Wait for page to load
+    import time
+    time.sleep(0.5)
+
+
+@when('I click "{button_text}"')
+def step_impl(context: Any, button_text: str) -> None:
+    """Click a button by its text content"""
+    # Try to find button by text (case-insensitive)
+    buttons = context.browser.find_elements(By.TAG_NAME, "button")
+    for button in buttons:
+        if button.text.strip().lower() == button_text.lower():
+            button.click()
+            import time
+            time.sleep(0.3)  # Wait for modal to appear
+            return
+    raise AssertionError(f"Button with text '{button_text}' not found")
+
+
+@when('I fill the create form with:')
+def step_impl(context: Any) -> None:
+    """Fill the create form with data from table (key-value pairs)"""
+
+    # Map field names to input IDs in the v2 modal
+    field_map = {
+        'name': 'inputName',
+        'promotion_type': 'inputType',
+        'value': 'inputValue',
+        'product_id': 'inputProductId',
+        'start_date': 'inputStart',
+        'end_date': 'inputEnd'
+    }
+    ## wait for auto focus for modal
+    try:
+        first_element = WebDriverWait(context.browser, context.wait_seconds).until(
+            expected_conditions.element_to_be_clickable((By.ID, "inputName"))
+        )
+        
+        
+        WebDriverWait(context.browser, context.wait_seconds).until(
+            lambda driver: driver.switch_to.active_element == first_element
+        )
+    except Exception as e:
+        raise AssertionError(f"Modal did not open or focus 'inputName' in time: {e}")
+
+    # The table is in key-value format without headers
+    # In behave, the first row is treated as headers, so we need to process it as data too
+    import time
+
+    def fill_field(field_name: str, field_value: str) -> None:
+        """Fill a form field using appropriate Selenium method"""
+        element_id = field_map.get(field_name)
+        if not element_id:
+            raise AssertionError(f"Unknown field: {field_name}")
+
+        element = WebDriverWait(context.browser, context.wait_seconds).until(
+            expected_conditions.presence_of_element_located((By.ID, element_id))
+        )
+
+        # Handle different field types
+        if field_name == 'promotion_type':
+            # Use Select for dropdown
+            select = Select(element)
+            select.select_by_value(field_value)
+        elif field_name in ['start_date', 'end_date']:
+            # For date inputs, send keys directly (don't clear)
+            element.send_keys(field_value)
+        else:
+            # For text and number inputs, use standard clear + send_keys
+            element.clear()
+            element.send_keys(field_value)
+
+        time.sleep(0.1)
+
+    # Process the header row as the first data row
+    if context.table.headings:
+        field_name = context.table.headings[0]
+        field_value = context.table.headings[1]
+        fill_field(field_name, field_value)
+
+    # Process the rest of the rows
+    for row in context.table:
+        field_name = row[0]
+        field_value = row[1]
+        fill_field(field_name, field_value)
+
+
+@when('I submit the create form')
+def step_impl(context: Any) -> None:
+    """Submit the create form"""
+    submit_button = WebDriverWait(context.browser, context.wait_seconds).until(
+        expected_conditions.element_to_be_clickable((By.ID, "createSubmit"))
+    )
+    submit_button.click()
+
+    # --- MODIFIED: Wait for the modal to disappear ---
+    try:
+        modal_element = context.browser.find_element(By.ID, "createModal")
+        WebDriverWait(context.browser, context.wait_seconds).until(
+            expected_conditions.invisibility_of_element(modal_element)
+        )
+    except Exception as e:
+        # --- START: Debugging Code ---
+        # The modal did not close, which means the server returned an error.
+        # Let's capture a screenshot and read the error message.
+
+        # 1. Save a screenshot for visual inspection
+        save_screenshot(context, "create_form_failure")
+        
+        # 2. Read the text from the 'createError' element
+        error_text = "[Could not read 'createError' element]"
+        try:
+            error_element = context.browser.find_element(By.ID, "createError")
+            if error_element.is_displayed():
+                error_text = error_element.text
+            else:
+                error_text = "[Error element 'createError' exists but is not visible]"
+        except Exception as e_inner:
+            error_text = f"[Exception while reading 'createError': {e_inner}]"
+
+        # 3. Raise an informative assertion with the server's message
+        raise AssertionError(
+            f"Modal did not close after submit. "
+            f"Screenshot 'create_form_failure.png' saved. "
+            f"SERVER ERROR MESSAGE: '{error_text}'"
+        )
+        # --- END: Debugging Code ---
+
+
+@then('I should see the promotions table updated with "{name}"')
+def step_impl(context: Any, name: str) -> None:
+    """Verify the promotion appears in the table"""
+    # Wait for table to update
+    found = WebDriverWait(context.browser, context.wait_seconds).until(
+        expected_conditions.text_to_be_present_in_element(
+            (By.ID, "promotions_table"), name
+        )
+    )
+    assert found, f"Promotion '{name}' not found in table"

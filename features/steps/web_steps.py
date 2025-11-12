@@ -106,8 +106,6 @@ def step_impl(context, name):
 def step_impl(context: Any) -> None:
     """Make a call to the base URL"""
     context.browser.get(context.base_url)
-    # Uncomment next line to take a screenshot of the web page
-    # save_screenshot(context, 'Home Page')
 
 
 @then('I should see "{message}" in the title')
@@ -213,9 +211,6 @@ def step_impl(context: Any, name: str) -> None:
 
 @then('I should see the message "{message}"')
 def step_impl(context: Any, message: str) -> None:
-    # Uncomment next line to take a screenshot of the web page for debugging
-    # save_screenshot(context, message)
-
     # First wait for flash_message element to be present
     element = WebDriverWait(context.browser, context.wait_seconds).until(
         expected_conditions.presence_of_element_located((By.ID, "flash_message"))
@@ -225,7 +220,6 @@ def step_impl(context: Any, message: str) -> None:
     import time
     time.sleep(0.5)  # Give AJAX time to complete
 
-    # Debug: print actual message
     actual_message = element.text
     logging.info(f"Expected: '{message}', Actual: '{actual_message}'")
 
@@ -254,9 +248,6 @@ def step_impl(context: Any, message: str) -> None:
 def step_impl(context: Any, text_string: str, element_name: str) -> None:
     prefix = get_prefix(context)
     element_id = prefix + element_name.lower().replace(" ", "_")
-
-    # Add debug screenshot
-    # save_screenshot(context, f"before_checking_{element_name}")  # ADD THIS
 
     found = WebDriverWait(context.browser, context.wait_seconds).until(
         expected_conditions.text_to_be_present_in_element_value(
@@ -405,6 +396,9 @@ def step_impl(context: Any, name: str) -> None:
     for button in delete_buttons:
         button_name = button.get_attribute("data-name")
         if button_name == name:
+            # Scroll element into view before clicking
+            context.browser.execute_script("arguments[0].scrollIntoView({block: 'center'});", button)
+            time.sleep(0.3)  # Wait for scroll to complete
             button.click()
             time.sleep(0.5)  # Wait for modal to appear
             return
@@ -477,6 +471,9 @@ def step_impl(context: Any, name: str) -> None:
             try:
                 promotion = json.loads(promotion_json)
                 if promotion.get('name') == name:
+                    # Scroll element into view before clicking
+                    context.browser.execute_script("arguments[0].scrollIntoView({block: 'center'});", button)
+                    time.sleep(0.3)  # Wait for scroll to complete
                     button.click()
                     time.sleep(0.5)  # Wait for modal to appear
                     return
@@ -563,3 +560,104 @@ def step_impl(context: Any) -> None:
     WebDriverWait(context.browser, context.wait_seconds).until(
         expected_conditions.invisibility_of_element(modal_element)
     )
+
+
+##################################################################
+# V2 Filter Steps
+##################################################################
+
+
+@when('I click the "{text}" filter pill')
+def step_impl(context: Any, text: str) -> None:
+    """Click a filter pill by text"""
+    import time
+
+    # Find all filter pills
+    pills = context.browser.find_elements(By.CLASS_NAME, "filter-pill")
+
+    for pill in pills:
+        if pill.text.strip() == text:
+            pill.click()
+            time.sleep(0.5)  # Wait for filter to apply
+            return
+
+    raise AssertionError(f"Filter pill '{text}' not found")
+
+
+@when('I search for "{text}"')
+def step_impl(context: Any, text: str) -> None:
+    """Enter text in the search box"""
+    import time
+
+    search_input = WebDriverWait(context.browser, context.wait_seconds).until(
+        expected_conditions.presence_of_element_located((By.ID, "searchInput"))
+    )
+    search_input.clear()
+    search_input.send_keys(text)
+
+    # Wait for debounce and filter to apply
+    time.sleep(0.5)
+
+
+@when('I select "{value}" in the Type filter')
+def step_impl(context: Any, value: str) -> None:
+    """Select a value in the Type dropdown"""
+    import time
+
+    type_select = WebDriverWait(context.browser, context.wait_seconds).until(
+        expected_conditions.presence_of_element_located((By.ID, "filterType"))
+    )
+    select = Select(type_select)
+    select.select_by_value(value)
+
+    # Wait for filter to apply
+    time.sleep(0.5)
+
+
+@when('I filter by product ID "{product_id}"')
+def step_impl(context: Any, product_id: str) -> None:
+    """Enter product ID in the filter input"""
+    import time
+
+    product_input = WebDriverWait(context.browser, context.wait_seconds).until(
+        expected_conditions.presence_of_element_located((By.ID, "filterProductId"))
+    )
+    product_input.clear()
+    product_input.send_keys(product_id)
+
+    # Wait for debounce and filter to apply
+    time.sleep(0.5)
+
+
+@when('I click the Clear filters button')
+def step_impl(context: Any) -> None:
+    """Click the Clear filters button"""
+    import time
+
+    clear_button = WebDriverWait(context.browser, context.wait_seconds).until(
+        expected_conditions.element_to_be_clickable((By.ID, "btnClearFilters"))
+    )
+    clear_button.click()
+
+    # Wait for filters to clear
+    time.sleep(0.5)
+
+
+@then('the URL should contain "{text}"')
+def step_impl(context: Any, text: str) -> None:
+    """Verify the URL contains specific text"""
+    import time
+    time.sleep(0.3)  # Give URL time to update
+
+    current_url = context.browser.current_url
+    assert text in current_url, f"Expected URL to contain '{text}', but got: {current_url}"
+
+
+@then('the URL should not contain parameters')
+def step_impl(context: Any) -> None:
+    """Verify the URL does not contain query parameters"""
+    import time
+    time.sleep(0.3)  # Give URL time to update
+
+    current_url = context.browser.current_url
+    assert '?' not in current_url, f"Expected URL without parameters, but got: {current_url}"

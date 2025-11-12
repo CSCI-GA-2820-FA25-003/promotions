@@ -22,6 +22,7 @@ Feature: Promotions Admin UI
 
   Scenario: Delete a promotion from the UI
     Given the following promotions
+
       | Name        | Promotion Type | Value | Product ID | Start Date | End Date   |
       | Summer Sale | PERCENT        | 15    | 1002       | 2025-06-01 | 2025-08-31 |
     When I visit the "Home Page"
@@ -65,3 +66,69 @@ Feature: Promotions Admin UI
       | Flash Sale Updated | PERCENT        | 25    | 3002       | 2030-02-01 | 2030-02-28 |
     And I submit the edit form
     Then I should see the promotions table updated with "Flash Sale Updated"
+
+  Scenario: Filter promotions by Active status
+    Given the following promotions
+      | Name         | Promotion Type | Value | Product ID | Start Date | End Date   |
+      | Active Sale  | PERCENT        | 20    | 5001       | 2024-01-01 | 2026-12-31 |
+      | Expired Sale | PERCENT        | 30    | 5002       | 2020-01-01 | 2020-12-31 |
+    When I go to "/v2"
+    And I click the "Active" filter pill
+    Then I should see the promotions table updated with "Active Sale"
+    And I should not see "Expired Sale" in the promotions table
+    And the URL should contain "active=true"
+
+  Scenario: Filter promotions by Inactive status
+    Given the following promotions
+      | Name         | Promotion Type | Value | Product ID | Start Date | End Date   |
+      | Active Sale  | PERCENT        | 20    | 6001       | 2024-01-01 | 2026-12-31 |
+      | Expired Sale | PERCENT        | 30    | 6002       | 2020-01-01 | 2020-12-31 |
+    When I go to "/v2"
+    And I click the "Inactive" filter pill
+    Then I should see the promotions table updated with "Expired Sale"
+    And I should not see "Active Sale" in the promotions table
+    And the URL should contain "active=false"
+
+  Scenario: Search promotions by name
+    Given the following promotions
+      | Name        | Promotion Type | Value | Product ID | Start Date | End Date   |
+      | Summer Sale | PERCENT        | 25    | 7001       | 2030-06-01 | 2030-08-31 |
+      | Winter Sale | PERCENT        | 30    | 7002       | 2030-12-01 | 2030-12-31 |
+    When I go to "/v2"
+    And I search for "Summer Sale"
+    Then I should see the promotions table updated with "Summer Sale"
+    And I should not see "Winter Sale" in the promotions table
+    And the URL should contain "name=Summer%20Sale"
+
+  Scenario: Filter promotions by Type
+    Given the following promotions
+      | Name          | Promotion Type | Value | Product ID | Start Date | End Date   |
+      | Percent Sale  | PERCENT        | 20    | 8001       | 2030-01-01 | 2030-12-31 |
+      | Discount Sale | DISCOUNT       | 100   | 8002       | 2030-01-01 | 2030-12-31 |
+    When I go to "/v2"
+    And I select "DISCOUNT" in the Type filter
+    Then I should see the promotions table updated with "Discount Sale"
+    And I should not see "Percent Sale" in the promotions table
+    And the URL should contain "promotion_type=DISCOUNT"
+
+  Scenario: Filter promotions by Product ID
+    Given the following promotions
+      | Name   | Promotion Type | Value | Product ID | Start Date | End Date   |
+      | Sale A | PERCENT        | 20    | 9001       | 2030-01-01 | 2030-12-31 |
+      | Sale B | PERCENT        | 30    | 9002       | 2030-01-01 | 2030-12-31 |
+    When I go to "/v2"
+    And I filter by product ID "9001"
+    Then I should see the promotions table updated with "Sale A"
+    And I should not see "Sale B" in the promotions table
+    And the URL should contain "product_id=9001"
+
+  Scenario: Clear all filters
+    Given the following promotions
+      | Name        | Promotion Type | Value | Product ID | Start Date | End Date   |
+      | Summer Sale | PERCENT        | 25    | 1001       | 2030-06-01 | 2030-08-31 |
+    When I go to "/v2"
+    And I click the "Active" filter pill
+    Then the URL should contain "active=true"
+    When I click the Clear filters button
+    Then the URL should not contain parameters
+    And I should see the promotions table updated with "Summer Sale"

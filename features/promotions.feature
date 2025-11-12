@@ -37,12 +37,8 @@ Feature: Promotions Admin UI
     When I go to "/v2"
     And I click "Create"
     And I fill the create form with:
-      | name           | Winter Sale |
-      | promotion_type | PERCENT     |
-      | value          | 50          |
-      | product_id     | 9999        |
-      | start_date     | 2030-11-12  |
-      | end_date       | 2030-11-30  |
+      | Name        | Promotion Type | Value | Product ID | Start Date | End Date   |
+      | Winter Sale | PERCENT        | 50    | 9999       | 2030-11-12 | 2030-11-30 |
     And I submit the create form
     Then I should see the promotions table updated with "Winter Sale"
 
@@ -95,9 +91,9 @@ Feature: Promotions Admin UI
 
   Scenario: Search promotions by name
     Given the following promotions
-      | Name         | Promotion Type | Value | Product ID | Start Date | End Date   |
-      | Summer Sale  | PERCENT        | 25    | 7001       | 2030-06-01 | 2030-08-31 |
-      | Winter Sale  | PERCENT        | 30    | 7002       | 2030-12-01 | 2030-12-31 |
+      | Name        | Promotion Type | Value | Product ID | Start Date | End Date   |
+      | Summer Sale | PERCENT        | 25    | 7001       | 2030-06-01 | 2030-08-31 |
+      | Winter Sale | PERCENT        | 30    | 7002       | 2030-12-01 | 2030-12-31 |
     When I go to "/v2"
     And I search for "Summer Sale"
     Then I should see the promotions table updated with "Summer Sale"

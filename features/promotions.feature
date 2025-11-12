@@ -22,7 +22,6 @@ Feature: Promotions Admin UI
 
   Scenario: Delete a promotion from the UI
     Given the following promotions
-
       | Name        | Promotion Type | Value | Product ID | Start Date | End Date   |
       | Summer Sale | PERCENT        | 15    | 1002       | 2025-06-01 | 2025-08-31 |
     When I visit the "Home Page"
@@ -37,12 +36,8 @@ Feature: Promotions Admin UI
     When I go to "/v2"
     And I click "Create"
     And I fill the create form with:
-      | name           | Winter Sale |
-      | promotion_type | PERCENT     |
-      | value          | 50          |
-      | product_id     | 9999        |
-      | start_date     | 2030-11-12  |
-      | end_date       | 2030-11-30  |
+      | Name        | Promotion Type | Value | Product ID | Start Date | End Date   |
+      | Winter Sale | PERCENT        | 50    | 9999       | 2030-11-12 | 2030-11-30 |
     And I submit the create form
     Then I should see the promotions table updated with "Winter Sale"
 
@@ -57,13 +52,16 @@ Feature: Promotions Admin UI
     When I confirm the deletion
     Then I should not see "Summer Sale" in the promotions table
 
-  # R4-07: List Promotions (UI + BDD)
-  # Uses existing "List All" capability (button id: list_promotions-btn) and verifies results.
-  Scenario: List promotions from the UI
+  Scenario: Edit a promotion from v2
     Given the following promotions
-      | Name        | Promotion Type | Value | Product ID | Start Date | End Date   |
-      | Summer Sale | PERCENT        | 15    | 1002       | 2025-06-01 | 2025-08-31 |
-    When I visit the "Home Page"
-    And I press the "List Promotions" button
-    Then I should see the message "Success"
-    And I should see "Summer Sale" in the results
+      | Name       | Promotion Type | Value | Product ID | Start Date | End Date   |
+      | Flash Sale | DISCOUNT       | 100   | 3001       | 2030-01-01 | 2030-01-31 |
+    When I go to "/v2"
+    Then I should see the promotions table updated with "Flash Sale"
+    When I click the edit button for "Flash Sale"
+    Then I should see the edit modal
+    When I fill the edit form with:
+      | Name               | Promotion Type | Value | Product ID | Start Date | End Date   |
+      | Flash Sale Updated | PERCENT        | 25    | 3002       | 2030-02-01 | 2030-02-28 |
+    And I submit the edit form
+    Then I should see the promotions table updated with "Flash Sale Updated"

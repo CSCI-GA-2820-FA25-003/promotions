@@ -45,3 +45,14 @@ Feature: Promotions Admin UI
       | end_date       | 2030-11-30  |
     And I submit the create form
     Then I should see the promotions table updated with "Winter Sale"
+
+  Scenario: Delete a promotion from v2
+    Given the following promotions
+      | Name        | Promotion Type | Value | Product ID | Start Date | End Date   |
+      | Summer Sale | PERCENT        | 20    | 2001       | 2030-06-01 | 2030-08-31 |
+    When I go to "/v2"
+    Then I should see the promotions table updated with "Summer Sale"
+    When I click the delete button for "Summer Sale"
+    Then I should see the delete confirmation modal
+    When I confirm the deletion
+    Then I should not see "Summer Sale" in the promotions table

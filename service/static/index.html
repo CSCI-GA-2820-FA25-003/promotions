@@ -1,58 +1,122 @@
-<!-- service/static/index.html -->
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <title>Promotions Admin</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <!-- Prevent stale static assets in headless browser caches -->
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-  <meta http-equiv="Pragma" content="no-cache" />
-  <meta http-equiv="Expires" content="0" />
-  <style>
-    :root { --fg:#222; --muted:#666; --bd:#e5e5e5; --pad:16px; }
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; color: var(--fg); margin: 24px; }
-    header { margin-bottom: 8px; }
-    h1 { font-size: 1.6rem; margin: 0 0 4px; }
-    p.muted { color: var(--muted); margin-top: 4px; }
-    main { border:1px solid var(--bd); border-radius: 8px; padding: var(--pad); }
-    section { border: 1px solid var(--bd); padding: 12px; border-radius: 8px; margin: 12px 0; }
-    label { display: inline-block; min-width: 140px; }
-    input, select { margin: 4px 0 8px 0; padding: 6px; width: 260px; }
-    button { padding: 6px 12px; cursor: pointer; }
-    table { border-collapse: collapse; width: 100%; margin-top: 12px; }
-    th, td { border: 1px solid var(--bd); padding: 6px 8px; text-align: left; }
-    #status { margin: 8px 0 12px; color: var(--muted); }
-  </style>
-</head>
-<body>
-  <header>
-    <h1 id="title">Promotions Admin</h1>
-    <p class="muted">Administrator console – Create/List will expand in R4‑03…R4‑09</p>
-  </header>
-  <main>
-    <div id="status">Ready.</div>
-    <section id="sec-create">
-      <h2>Create</h2>
-      <div><label for="c-name">name</label><input id="c-name" /></div>
-      <div><label for="c-type">promotion_type</label><input id="c-type" /></div>
-      <div><label for="c-value">value</label><input id="c-value" type="number" /></div>
-      <div><label for="c-product">product_id</label><input id="c-product" type="number" /></div>
-      <div><label for="c-start">start_date</label><input id="c-start" placeholder="YYYY-MM-DD" /></div>
-      <div><label for="c-end">end_date</label><input id="c-end" placeholder="YYYY-MM-DD" /></div>
-      <button id="btn-create">Create</button>
-    </section>
-    <section id="sec-results">
-      <h2>Results</h2>
-      <table id="results">
-        <thead>
-          <tr><th>id</th><th>name</th><th>promotion_type</th><th>value</th><th>product_id</th><th>start_date</th><th>end_date</th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </section>
-  </main>
-  <!-- Always fetch the Blueprint static JS (not app-level /static) and bust cache -->
-  <script src="js/app.js"></script>
-</body>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Promotions Admin</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+  </head>
+  <body>
+    <div class="container">
+      <h1>Promotions RESTful Service</h1>
+      <p>Administrator console</p>
+
+      <div class="row">
+        <div class="col-md-8">
+          <!-- Flash Message -->
+          <div class="alert alert-success" role="alert" id="flash_message">
+            Ready...
+          </div>
+
+          <!-- Promotion Form -->
+          <div class="card">
+            <div class="card-body">
+              <h5 class="card-title">Promotion Details</h5>
+              <div class="mb-3">
+                <label for="promotion_id" class="form-label">ID</label>
+                <input type="text" class="form-control" id="promotion_id" placeholder="ID of the Promotion">
+              </div>
+              <div class="mb-3">
+                <label for="promotion_name" class="form-label">Name</label>
+                <input type="text" class="form-control" id="promotion_name" placeholder="Enter name for Promotion">
+              </div>
+              <div class="mb-3">
+                <label for="promotion_promotion_type" class="form-label">Promotion Type</label>
+                <input type="text" class="form-control" id="promotion_promotion_type" placeholder="e.g., BOGO, DISCOUNT">
+              </div>
+              <div class="mb-3">
+                <label for="promotion_value" class="form-label">Value</label>
+                <input type="number" class="form-control" id="promotion_value" placeholder="e.g., 10">
+              </div>
+              <div class="mb-3">
+                <label for="promotion_product_id" class="form-label">Product ID</label>
+                <input type="number" class="form-control" id="promotion_product_id" placeholder="Enter Product ID">
+              </div>
+              <div class="mb-3">
+                <label for="promotion_start_date" class="form-label">Start Date</label>
+                <input type="text" class="form-control" id="promotion_start_date" placeholder="YYYY-MM-DD">
+              </div>
+              <div class="mb-3">
+                <label for="promotion_end_date" class="form-label">End Date</label>
+                <input type="text" class="form-control" id="promotion_end_date" placeholder="YYYY-MM-DD">
+              </div>
+              <button type="submit" id="create_promotion-btn" class="btn btn-success">Create</button>
+              <button type="submit" id="update_promotion-btn" class="btn btn-warning">Update</button>
+              <button type="submit" id="delete_promotion-btn" class="btn btn-danger">Delete</button>
+              <button type="submit" id="retrieve_promotion-btn" class="btn btn-info">Retrieve</button>
+              <button type="submit" id="clear_form_fields-btn" class="btn btn-secondary">Clear</button>
+            </div>
+          </div>
+
+          <!-- Search Section -->
+          <div class="card mt-3">
+            <div class="card-body">
+              <h5 class="card-title">Search Promotions</h5>
+              <div class="mb-3">
+                <label for="promotion_search_name" class="form-label">Search by Name</label>
+                <input type="text" class="form-control" id="promotion_search_name" placeholder="Enter promotion name">
+              </div>
+              <div class="mb-3">
+                <label for="promotion_search_type" class="form-label">Search by Type</label>
+                <input type="text" class="form-control" id="promotion_search_type" placeholder="e.g., BOGO, DISCOUNT">
+              </div>
+              <div class="mb-3">
+                <label for="promotion_search_product" class="form-label">Search by Product ID</label>
+                <input type="number" class="form-control" id="promotion_search_product" placeholder="Enter Product ID">
+              </div>
+              <button type="submit" id="search_promotions-btn" class="btn btn-primary">Search</button>
+              <button type="submit" id="list_promotions-btn" class="btn btn-primary">List All</button>
+            </div>
+          </div>
+
+          <!-- Actions Section -->
+          <div class="card mt-3">
+            <div class="card-body">
+              <h5 class="card-title">Special Actions</h5>
+              <div class="mb-3">
+                <label for="promotion_action_id" class="form-label">Promotion ID</label>
+                <input type="text" class="form-control" id="promotion_action_id" placeholder="ID to deactivate">
+              </div>
+              <button type="submit" id="deactivate_promotion-btn" class="btn btn-warning">Deactivate</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Search Results -->
+      <div class="table-responsive">
+        <h2>Search Results</h2>
+        <table class="table table-striped">
+          <thead>
+            <tr>
+              <th scope="col">ID</th>
+              <th scope="col">Name</th>
+              <th scope="col">Type</th>
+              <th scope="col">Value</th>
+              <th scope="col">Product ID</th>
+              <th scope="col">Start Date</th>
+              <th scope="col">End Date</th>
+            </tr>
+          </thead>
+          <tbody id="search_results">
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+    <script type="text/javascript" src="static/js/jquery-3.6.0.min.js"></script>
+    <script type="text/javascript" src="static/js/app.js"></script>
+  </body>
 </html>

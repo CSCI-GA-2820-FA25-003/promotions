@@ -1,22 +1,21 @@
 # features/promotions.feature
-Feature: Promotions Admin UI bootstrap
-  As a service administrator
-  I want a working BDD harness that drives the UI only
-  So that I can validate the service behavior from the outside-in
+Feature: Promotions Admin UI
+  As an eCommerce manager
+  I want to manage promotions through a web interface
+  So that I can create, update, and track promotional campaigns
 
-  Background:
-    Given the Promotions UI is available
+  Scenario: Load the admin UI page
+    When I visit the "Home Page"
+    Then I should see "Promotions Admin" in the title
 
-  Scenario: UI smoke (open /ui and see the title)
-    Then the page title contains "Promotions Admin"
-
-  Scenario: Create a promotion
-    When I create a promotion with:
-      | name           | SpringSale  |
-      | promotion_type | PERCENT     |
-      | value          | 10          |
-      | product_id     | 1001        |
-      | start_date     | 2025-01-01  |
-      | end_date       | 2025-12-31  |
-    Then the status shows "Created id="
-    And the results contain a row with name "SpringSale"
+  Scenario: Create a promotion from the UI
+    When I visit the "Home Page"
+    And I set the "Name" to "SpringSale"
+    And I set the "Promotion Type" to "PERCENT"
+    And I set the "Value" to "10"
+    And I set the "Product ID" to "1001"
+    And I set the "Start Date" to "2025-01-01"
+    And I set the "End Date" to "2025-12-31"
+    And I press the "Create Promotion" button
+    Then I should see the message "Success"
+    And I should see "SpringSale" in the results

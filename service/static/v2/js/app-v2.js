@@ -34,22 +34,43 @@
   /* -------------------------
      Table rendering / loader
   ------------------------- */
-  async function loadPromotions() {
+  // Global filter state
+  var currentFilters = {
+    active: null,      // null, 'all', 'active', 'inactive'
+    name: null,
+    type: null,
+    productId: null
+  };
+
+  async function loadPromotions(queryParams) {
     var tbody = document.querySelector('#promotions_table tbody');
     if (!tbody) return;
-    tbody.innerHTML = '<tr><td colspan="7" class="text-center small text-muted">Loading...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center small text-muted">Loading...</td></tr>';
+
     try {
-      var res = await fetch('/promotions', { credentials: 'same-origin' });
+      var url = '/promotions';
+      if (queryParams) {
+        url += '?' + queryParams;
+      }
+
+      var res = await fetch(url, { credentials: 'same-origin' });
       if (!res.ok) throw new Error('GET /promotions failed: ' + res.status);
       var json = await res.json();
-      console.log('raw /promotions response:', json);
+      // console.log('raw /promotions response:', json);
       var items = normalizeResponse(json);
       renderRows(items);
+      updatePromotionsCount(items.length);
     } catch (err) {
       console.error(err);
-      tbody.innerHTML = '<tr><td colspan="7" class="text-danger">Failed to load promotions. See console.</td></tr>';
-      var info = $id('page_info');
-      if (info) info.textContent = 'Error';
+      tbody.innerHTML = '<tr><td colspan="8" class="text-danger">Failed to load promotions. See console.</td></tr>';
+      updatePromotionsCount(0);
+    }
+  }
+
+  function updatePromotionsCount(count) {
+    var countEl = $id('promotionsCount');
+    if (countEl) {
+      countEl.textContent = count + ' promotion' + (count !== 1 ? 's' : '');
     }
   }
 
@@ -83,16 +104,16 @@
         '<td class="text-center">' + startDate + '</td>',
         '<td class="text-center">' + endDate + '</td>',
         '<td class="text-center" style="white-space: nowrap;">' +
-          '<button class="edit-btn" data-id="' + id + '" data-promotion=\'' + JSON.stringify(p) + '\'>' +
-            '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-pencil" viewBox="0 0 16 16">' +
-              '<path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>' +
-            '</svg>' +
-          '</button><button class="delete-btn" data-id="' + id + '" data-name="' + name + '">' +
-            '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16">' +
-              '<path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/>' +
-              '<path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/>' +
-            '</svg>' +
-          '</button>' +
+        '<button class="edit-btn" data-id="' + id + '" data-promotion=\'' + JSON.stringify(p) + '\'>' +
+        '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-pencil" viewBox="0 0 16 16">' +
+        '<path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>' +
+        '</svg>' +
+        '</button><button class="delete-btn" data-id="' + id + '" data-name="' + name + '">' +
+        '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16">' +
+        '<path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/>' +
+        '<path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/>' +
+        '</svg>' +
+        '</button>' +
         '</td>'
       ].join('');
       frag.appendChild(tr);
@@ -662,6 +683,156 @@
         editForm.removeAttribute('aria-busy');
       }
     });
+  })();
+
+  /* -------------------------
+     Filters: Event Handlers
+  ------------------------- */
+  (function initFilters() {
+    var searchInput = $id('searchInput');
+    var filterPills = document.querySelectorAll('.filter-pill');
+    var filterType = $id('filterType');
+    var filterProductId = $id('filterProductId');
+    var btnClearFilters = $id('btnClearFilters');
+
+    var searchTimeout = null;
+
+    function applyFilters() {
+      var queryParams = '';
+
+      // Priority: active > name > type > product_id (backend priority)
+      if (currentFilters.active && currentFilters.active !== 'all') {
+        // active: true or false
+        if (currentFilters.active === 'active') {
+          queryParams = 'active=true';
+        } else if (currentFilters.active === 'inactive') {
+          queryParams = 'active=false';
+        }
+      } else if (currentFilters.name && currentFilters.name.trim()) {
+        queryParams = 'name=' + encodeURIComponent(currentFilters.name.trim());
+      } else if (currentFilters.type) {
+        queryParams = 'promotion_type=' + encodeURIComponent(currentFilters.type);
+      } else if (currentFilters.productId) {
+        queryParams = 'product_id=' + encodeURIComponent(currentFilters.productId);
+      }
+
+      loadPromotions(queryParams);
+    }
+
+    // Search input (debounced)
+    if (searchInput) {
+      searchInput.addEventListener('input', function (e) {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(function () {
+          currentFilters.name = e.target.value;
+          // Clear other filters when searching by name
+          if (currentFilters.name && currentFilters.name.trim()) {
+            currentFilters.active = null;
+            currentFilters.type = null;
+            currentFilters.productId = null;
+            // Reset UI
+            filterPills.forEach(function (pill) { pill.classList.remove('active'); });
+            if (filterType) filterType.value = '';
+            if (filterProductId) filterProductId.value = '';
+          }
+          applyFilters();
+        }, 300);
+      });
+    }
+
+    // Status pills
+    filterPills.forEach(function (pill) {
+      pill.addEventListener('click', function () {
+        var filter = this.getAttribute('data-filter');
+
+        // Update active state
+        filterPills.forEach(function (p) { p.classList.remove('active'); });
+        this.classList.add('active');
+
+        currentFilters.active = filter;
+
+        // Clear other filters
+        if (filter !== 'all') {
+          currentFilters.name = null;
+          currentFilters.type = null;
+          currentFilters.productId = null;
+          // Reset UI
+          if (searchInput) searchInput.value = '';
+          if (filterType) filterType.value = '';
+          if (filterProductId) filterProductId.value = '';
+        }
+
+        applyFilters();
+      });
+    });
+
+    // Type dropdown
+    if (filterType) {
+      filterType.addEventListener('change', function (e) {
+        currentFilters.type = e.target.value;
+
+        // Clear other filters when selecting type
+        if (currentFilters.type) {
+          currentFilters.active = null;
+          currentFilters.name = null;
+          currentFilters.productId = null;
+          // Reset UI
+          filterPills.forEach(function (pill) { pill.classList.remove('active'); });
+          if (searchInput) searchInput.value = '';
+          if (filterProductId) filterProductId.value = '';
+        }
+
+        applyFilters();
+      });
+    }
+
+    // Product ID input (debounced)
+    if (filterProductId) {
+      filterProductId.addEventListener('input', function (e) {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(function () {
+          currentFilters.productId = e.target.value;
+
+          // Clear other filters when entering product ID
+          if (currentFilters.productId) {
+            currentFilters.active = null;
+            currentFilters.name = null;
+            currentFilters.type = null;
+            // Reset UI
+            filterPills.forEach(function (pill) { pill.classList.remove('active'); });
+            if (searchInput) searchInput.value = '';
+            if (filterType) filterType.value = '';
+          }
+
+          applyFilters();
+        }, 300);
+      });
+    }
+
+    // Clear filters button
+    if (btnClearFilters) {
+      btnClearFilters.addEventListener('click', function () {
+        // Reset all filters
+        currentFilters.active = null;
+        currentFilters.name = null;
+        currentFilters.type = null;
+        currentFilters.productId = null;
+
+        // Reset UI
+        if (searchInput) searchInput.value = '';
+        if (filterType) filterType.value = '';
+        if (filterProductId) filterProductId.value = '';
+        filterPills.forEach(function (pill) {
+          pill.classList.remove('active');
+          if (pill.getAttribute('data-filter') === 'all') {
+            pill.classList.add('active');
+          }
+        });
+
+        // Reload all promotions
+        loadPromotions();
+      });
+    }
   })();
 
   // end of IIFE

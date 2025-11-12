@@ -19,6 +19,56 @@
       </div>
     </div>
 
+    <!-- Filters Section -->
+    <div class="filters-container mb-3">
+      <!-- Search Box -->
+      <div class="search-box mb-3">
+        <input type="text" id="searchInput" class="form-control" placeholder="🔍 Search promotions by name">
+      </div>
+
+      <!-- Status Pills and Dropdowns -->
+      <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+        <!-- Status Pills -->
+        <div class="filter-pills">
+          <button class="filter-pill active" data-filter="all">All</button>
+          <button class="filter-pill" data-filter="active">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.267.267 0 0 1 .02-.022z"/>
+            </svg>
+            Active
+          </button>
+          <button class="filter-pill" data-filter="inactive">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+            </svg>
+            Inactive
+          </button>
+        </div>
+
+        <!-- Divider -->
+        <div class="filter-divider"></div>
+
+        <!-- Type Dropdown -->
+        <select id="filterType" class="form-select filter-dropdown">
+          <option value="">Type: All</option>
+          <option value="PERCENT">PERCENT</option>
+          <option value="DISCOUNT">DISCOUNT</option>
+          <option value="BOGO">BOGO</option>
+        </select>
+
+        <!-- Product ID Input -->
+        <input type="number" id="filterProductId" class="form-control filter-input" placeholder="Product ID">
+
+        <!-- Clear Button -->
+        <button id="btnClearFilters" class="btn btn-outline-secondary btn-sm">Clear</button>
+      </div>
+
+      <!-- Results Count -->
+      <div class="results-count mb-2">
+        <span id="promotionsCount">0 promotions</span>
+      </div>
+    </div>
+
     <div class="card">
       <div class="card-body p-0">
         <div class="table-responsive">

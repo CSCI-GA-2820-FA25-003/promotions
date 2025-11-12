@@ -56,7 +56,6 @@
       var res = await fetch(url, { credentials: 'same-origin' });
       if (!res.ok) throw new Error('GET /promotions failed: ' + res.status);
       var json = await res.json();
-      // console.log('raw /promotions response:', json);
       var items = normalizeResponse(json);
       renderRows(items);
       updatePromotionsCount(items.length);

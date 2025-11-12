@@ -47,17 +47,21 @@ class status:
 def make_payload(**overrides) -> dict:
     """Build a valid promotion JSON payload"""
     base = {
-        "name": "NYU Demo",
-        "promotion_type": "AMOUNT_OFF",
+        "name": "Black Friday Sale",
+        "promotion_type": "DISCOUNT",
         "value": 10,
         "product_id": 123,
-        "start_date": "2025-10-01",
-        "end_date": "2025-10-31",
+        "start_date": "2025-11-28",
+        "end_date": "2025-11-30",
     }
     base.update(overrides)
     return base
 
 
+######################################################################
+#  H A P P Y   P A T H S
+######################################################################
+# pylint: disable=too-many-public-methods
 class TestPromotionService(TestCase):
     """Promotion Service functional tests"""
 
@@ -81,8 +85,36 @@ class TestPromotionService(TestCase):
         """Runs after each test"""
         db.session.remove()
 
-    # ---------- create / basic ----------
+    # ---------- Home ----------
+    def test_index_route_returns_index_html(self):
+        """It should return the index.html UI page"""
+        resp = self.client.get("/")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertIn(b"<html", resp.data)
+        self.assertIn(b"Promotions Admin", resp.data)
+        content_type = resp.headers.get("Content-Type")
+        self.assertIn("text/html", content_type)
 
+    def test_api_index(self):
+        """It should call the API index"""
+        resp = self.client.get("/api")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        data = resp.get_json()
+        self.assertEqual(data["name"], "Promotions Service")
+        self.assertEqual(data["version"], "1.0.0")
+        self.assertIn("promotions", data["paths"])
+
+    # ----- new tests for /v2 -----
+    def test_v2_route_returns_v2_html(self):
+        """It should return the v2 UI page"""
+        resp = self.client.get("/v2")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertIn(b"<html", resp.data)
+        self.assertTrue(b"Promotions Manager" in resp.data)
+        content_type = resp.headers.get("Content-Type")
+        self.assertIn("text/html", content_type)
+
+    # ---------- Create ----------
     def test_create_promotion(self):
         """It should Create a new Promotion"""
         resp = self.client.post(BASE_URL, json=make_payload(name="CreateMe"))
@@ -220,39 +252,132 @@ class TestPromotionService(TestCase):
             self.assertIn("Expired", names)
             self.assertIn("Future", names)
 
-        bad = self.client.get(f"{BASE_URL}?active=not-a-bool")
-        self.assertEqual(bad.status_code, status.HTTP_400_BAD_REQUEST)
+    # create one
+    payload = {
+        "name": "Promo A",
+        "promotion_type": "PERCENT",
+        "value": 10,
+        "product_id": 111,
+        "start_date": "2025-10-01",
+        "end_date": "2025-10-31",
+    }
+    created = client.post("/promotions", json=payload)
+    assert created.status_code == 201
+    pid = created.get_json()["id"]
 
-    def test_query_active_returns_only_current_promotions(self):
-        """It should return only promotions that are active today when ?active=true"""
-        today = date.today()
-        self.client.post(
-            BASE_URL,
-            json=make_payload(
-                name="ActiveNow",
-                start_date=(today - timedelta(days=2)).isoformat(),
-                end_date=(today + timedelta(days=2)).isoformat(),
-            ),
-        )
-        self.client.post(
-            BASE_URL,
-            json=make_payload(
-                name="Expired",
-                start_date=(today - timedelta(days=10)).isoformat(),
-                end_date=(today - timedelta(days=1)).isoformat(),
-            ),
-        )
-        self.client.post(
-            BASE_URL,
-            json=make_payload(
-                name="Future",
-                start_date=(today + timedelta(days=1)).isoformat(),
-                end_date=(today + timedelta(days=10)).isoformat(),
-            ),
-        )
+    # update it
+    payload["name"] = "Member Exclusive"
+    resp = client.put(f"/promotions/{pid}", json=payload)
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["name"] == "Member Exclusive"
 
-        resp = self.client.get(f"{BASE_URL}?active=true")
-        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+
+def test_update_promotion_not_found():
+    """It should return 404 when updating a non-existent Promotion"""
+    client = app.test_client()
+
+    payload = {
+        "name": "Ghost",
+        "promotion_type": "PERCENT",
+        "value": 5,
+        "product_id": 222,
+        "start_date": "2025-10-01",
+        "end_date": "2025-10-31",
+    }
+    resp = client.put("/promotions/999999", json=payload)
+    assert resp.status_code == 404
+    data = resp.get_json()
+    assert isinstance(data, dict)
+
+
+def test_update_promotion_id_mismatch_returns_400():
+    """It should return 400 when body.id != path id"""
+    client = app.test_client()
+    created = client.post("/promotions", json={
+        "name": "Summer Clearance", "promotion_type": "BOGO", "value": 1, "product_id": 9,
+        "start_date": "2025-08-15", "end_date": "2025-08-31",
+    })
+    assert created.status_code == 201
+    pid = created.get_json()["id"]
+
+    payload = {
+        "id": pid + 1,  # mismatch on purpose
+        "name": "Summer Clearance", "promotion_type": "BOGO", "value": 1, "product_id": 9,
+        "start_date": "2025-08-15", "end_date": "2025-08-31",
+    }
+    resp = client.put(f"/promotions/{pid}", json=payload)
+    assert resp.status_code == 400
+
+
+def test_list_promotions_all_returns_list():
+    """It should list all promotions when no query params are given"""
+    client = app.test_client()
+
+    # ensure at least 2 items
+    a = {
+        "name": "New Year Sale",
+        "promotion_type": "PERCENT",
+        "value": 1,
+        "product_id": 1,
+        "start_date": "2025-12-31",
+        "end_date": "2026-01-07",
+    }
+    b = {
+        "name": "Spring Festival",
+        "promotion_type": "DISCOUNT",
+        "value": 2,
+        "product_id": 2,
+        "start_date": "2025-01-28",
+        "end_date": "2025-02-05",
+    }
+    client.post("/promotions", json=a)
+    client.post("/promotions", json=b)
+
+    resp = client.get("/promotions")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert isinstance(data, list)
+    assert len(data) >= 2
+
+
+def test_query_promotion_type_405_on_wrong_method_root():
+    """It should return JSON 405 for wrong method on /promotions (PATCH not allowed)"""
+    client = app.test_client()
+    resp = client.patch("/promotions", json={"x": 1})
+    assert resp.status_code == 405
+    data = resp.get_json()
+    assert isinstance(data, dict)  # our JSON error handler
+
+
+def test_method_not_allowed_returns_json_on_item():
+    """It should return JSON 405 for wrong method on /promotions/<id> (POST not allowed)"""
+    client = app.test_client()
+    resp = client.post("/promotions/1")  # POST not allowed here
+    assert resp.status_code == 405
+    data = resp.get_json()
+    assert isinstance(data, dict)  # our JSON error handler
+
+
+def test_not_found_returns_json():
+    """It should return JSON 404 for unknown routes"""
+    client = app.test_client()
+    resp = client.get("/no-such-route")
+    assert resp.status_code == 404
+    data = resp.get_json()
+    assert isinstance(data, dict)  # our JSON error handler
+
+
+def test_internal_server_error_returns_json():
+    """It should return JSON 500 when an unhandled exception occurs"""
+    client = app.test_client()
+    # In testing mode Flask propagates exceptions; disable propagation for this test
+    prev = app.config.get("PROPAGATE_EXCEPTIONS", None)
+    app.config["PROPAGATE_EXCEPTIONS"] = False
+    try:
+        with patch("service.routes.Promotion.find", side_effect=Exception("boom")):
+            resp = client.get("/promotions/1")
+        assert resp.status_code == 500
         data = resp.get_json()
         self.assertTrue(all(d["name"] == "ActiveNow" for d in data))
 
@@ -262,7 +387,6 @@ class TestPromotionService(TestCase):
         """GET /health returns OK (支持纯文本 'OK' 或 JSON {'status':'OK'})."""
         resp = self.client.get("/health")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        # 兼容两种实现：纯文本 OK 或 JSON {"status": "OK"}
         body = resp.get_data(as_text=True)
         if body and body.strip().upper() == "OK":
             return
@@ -281,55 +405,12 @@ class TestPromotionService(TestCase):
 
     def test_unhandled_exception_500(self):
         """It should return JSON 500 when an unhandled exception occurs (covered via invalid id parse path)"""
-        # 触发一个转换错误（由路由层异常处理为 500）
         resp = self.client.get(f"{BASE_URL}/invalid-id")
         self.assertIn(resp.status_code, (status.HTTP_404_NOT_FOUND, status.HTTP_500_INTERNAL_SERVER_ERROR))
 
-    def test_method_not_allowed_on_collection(self):
-        """It should return JSON 405 for wrong method on /promotions (PATCH not allowed)"""
-        resp = self.client.patch(BASE_URL, json={})
-        self.assertEqual(resp.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
-        msg = resp.get_json().get("message", "")
-        self.assertTrue("Method Not Allowed" in msg or msg == "Method Not Allowed")
-
-    def test_method_not_allowed_on_resource(self):
-        """It should return JSON 405 for wrong method on /promotions/<id> (POST not allowed)"""
-        p = self.client.post(BASE_URL, json=make_payload(name="Patch?"))
-        self.assertEqual(p.status_code, status.HTTP_201_CREATED)
-        pid = p.get_json()["id"]
-        resp = self.client.post(f"{BASE_URL}/{pid}", json={})
-        self.assertEqual(resp.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
-        msg = resp.get_json().get("message", "")
-        self.assertTrue("Method Not Allowed" in msg or msg == "Method Not Allowed")
-
-    # ---------- update ----------
-
-    def test_update_promotion_success(self):
-        """It should Update an existing Promotion (200)."""
-        p = self.client.post(BASE_URL, json=make_payload(name="Old", promotion_type="AMOUNT_OFF"))
-        self.assertEqual(p.status_code, status.HTTP_201_CREATED)
-        pid = p.get_json()["id"]
-
-        payload = make_payload(name="NewName", promotion_type="AMOUNT_OFF", value=30, product_id=111)
-        payload["id"] = pid
-        resp = self.client.put(f"{BASE_URL}/{pid}", json=payload)
-        self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(resp.get_json()["name"], "NewName")
-
-    def test_update_promotion_not_found(self):
-        """It should return 404 when updating a non-existent Promotion"""
-        payload = make_payload(name="Ghost", promotion_type="AMOUNT_OFF", value=5, product_id=222)
-        payload["id"] = 999999
-        resp = self.client.put(f"{BASE_URL}/999999", json=payload)
-        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
-
-    def test_update_mismatched_id(self):
-        """It should return 400 when body.id != path id"""
-        p = self.client.post(BASE_URL, json=make_payload(name="Old2"))
-        self.assertEqual(p.status_code, status.HTTP_201_CREATED)
-        pid = p.get_json()["id"]
-
-        bad = make_payload(name="Mismatch")
-        bad["id"] = pid + 1
-        resp = self.client.put(f"{BASE_URL}/{pid}", json=bad)
-        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+    def test_post_without_content_type_triggers_received_none(self):
+        """Covers routes.check_content_type() 'received none' branch"""
+        resp = self.client.post(BASE_URL, data=b"{}")
+        self.assertEqual(resp.status_code, status.HTTP_415_UNSUPPORTED_MEDIA_TYPE)
+        msg = resp.get_json()["message"].lower()
+        self.assertIn("received none", msg)

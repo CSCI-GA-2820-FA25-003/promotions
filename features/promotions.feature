@@ -32,6 +32,17 @@ Feature: Promotions Admin UI
     Then I should see the message "Promotion has been Deleted!"
     And I should not see "Summer Sale" in the results
 
+  # R4-07: List Promotions (UI + BDD)
+  # Uses existing "List All" capability (button id: list_promotions-btn) and verifies results.
+  Scenario: List promotions from the UI
+    Given the following promotions
+      | Name        | Promotion Type | Value | Product ID | Start Date | End Date   |
+      | Summer Sale | PERCENT        | 15    | 1002       | 2025-06-01 | 2025-08-31 |
+    When I visit the "Home Page"
+    And I press the "List Promotions" button
+    Then I should see the message "Success"
+    And I should see "Summer Sale" in the results
+
   Scenario: Create a promotion from v2 modal
     Given the server is running
     When I go to "/v2"

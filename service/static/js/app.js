@@ -184,28 +184,28 @@ $(function () {
     // Delete a Promotion
     // ****************************************
 
-    // $("#delete_promotion-btn").click(function () {
+    $("#delete-btn").click(function () {
 
-    //     let promotion_id = $("#promotion_id").val();
+        let promotion_id = $("#promotion_id").val();
 
-    //     $("#flash_message").empty();
+        $("#flash_message").empty();
 
-    //     let ajax = $.ajax({
-    //         type: "DELETE",
-    //         url: `/promotions/${promotion_id}`,
-    //         contentType: "application/json",
-    //         data: '',
-    //     })
+        let ajax = $.ajax({
+            type: "DELETE",
+            url: `/promotions/${promotion_id}`,
+            contentType: "application/json",
+            data: '',
+        })
 
-    //     ajax.done(function(res){
-    //         clear_form_data()
-    //         flash_message("Promotion has been Deleted!")
-    //     });
+        ajax.done(function(res){
+            clear_form_data()
+            flashMessage("Promotion has been Deleted!")
+        });
 
-    //     ajax.fail(function(res){
-    //         flash_message("Server error!")
-    //     });
-    // });
+        ajax.fail(function(res){
+            handleFail(res, "Server error!")
+        });
+    });
 
     // ****************************************
     // Clear the form

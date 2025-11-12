@@ -19,3 +19,15 @@ Feature: Promotions Admin UI
     And I press the "Create Promotion" button
     Then I should see the message "Success"
     And I should see "SpringSale" in the results
+
+  Scenario: Delete a promotion from the UI
+    Given the following promotions
+
+      | Name        | Promotion Type | Value | Product ID | Start Date | End Date   |
+      | Summer Sale | PERCENT        | 15    | 1002       | 2025-06-01 | 2025-08-31 |
+    When I visit the "Home Page"
+    And I retrieve the promotion named "Summer Sale"
+    Then I should see "Summer Sale" in the "Name" field
+    When I press the "Delete" button
+    Then I should see the message "Promotion has been Deleted!"
+    And I should not see "Summer Sale" in the results

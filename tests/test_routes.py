@@ -79,11 +79,14 @@ class TestPromotionService(TestCase):
         db.session.remove()
 
     # ---------- Home ----------
-    def test_index(self):
-        """It should call the home page"""
+    def test_index_route_returns_index_html(self):
+        """It should return the index.html UI page"""
         resp = self.client.get("/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertIn(b"<html", resp.data)
         self.assertIn(b"Promotions Admin", resp.data)
+        content_type = resp.headers.get("Content-Type")
+        self.assertIn("text/html", content_type)
 
     def test_api_index(self):
         """It should call the API index"""

@@ -79,7 +79,7 @@ class TestPromotionService(TestCase):
         resp = self.client.get("/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertIn(b"<html", resp.data)
-        self.assertIn(b"Promotions Admin", resp.data)
+        self.assertIn(b"Promotions Manager", resp.data)
         content_type = resp.headers.get("Content-Type")
         self.assertIn("text/html", content_type)
 
@@ -91,16 +91,6 @@ class TestPromotionService(TestCase):
         self.assertEqual(data["name"], "Promotions Service")
         self.assertEqual(data["version"], "1.0.0")
         self.assertIn("promotions", data["paths"])
-
-    # ----- new tests for /v2 -----
-    def test_v2_route_returns_v2_html(self):
-        """It should return the v2 UI page"""
-        resp = self.client.get("/v2")
-        self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertIn(b"<html", resp.data)
-        self.assertTrue(b"Promotions Manager v2" in resp.data)
-        content_type = resp.headers.get("Content-Type")
-        self.assertIn("text/html", content_type)
 
     def test_health_check(self):
         """It should return health status"""

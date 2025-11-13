@@ -29,7 +29,7 @@ from wsgi import app
 from service.models import Promotion, db, DataValidationError
 from service.common import status
 
-BASE_URL = "/promotions"
+BASE_URL = "/api/promotions"
 
 
 def make_payload(**overrides) -> dict:

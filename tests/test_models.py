@@ -21,7 +21,6 @@ Test cases for Promotion Model
 # pylint: disable=duplicate-code
 import os
 import logging
-import unittest
 from unittest import TestCase
 from unittest.mock import patch
 from datetime import date, timedelta

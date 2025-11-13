@@ -135,13 +135,13 @@ def _get_active_promotions(active_raw):
     if active is True:
         app.logger.info("Filtering by active promotions (inclusive)")
         return Promotion.find_active()
-    else:
-        app.logger.info("Filtering by inactive promotions (not active today)")
-        return list(
-            Promotion.query.filter(
-                or_(Promotion.start_date > today, Promotion.end_date < today)
-            ).all()
-        )
+    app.logger.info("Filtering by inactive promotions (not active today)")
+    return list(
+        Promotion.query.filter(
+            or_(Promotion.start_date > today, Promotion.end_date < today)
+        ).all()
+    )
+
 
 def _get_promotions_by_product_id(product_id):
     try:
@@ -149,7 +149,6 @@ def _get_promotions_by_product_id(product_id):
         return Promotion.find_by_product_id(pid)
     except ValueError:
         abort(status.HTTP_400_BAD_REQUEST, f"Invalid value for query parameter 'product_id': {product_id}")
-
 
 
 ######################################################################

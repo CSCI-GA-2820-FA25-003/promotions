@@ -27,11 +27,9 @@ from unittest.mock import patch
 
 from wsgi import app
 from service.models import Promotion, db, DataValidationError
+from service.common import status
 
 BASE_URL = "/promotions"
-
-
-from service.common import status
 
 
 def make_payload(**overrides) -> dict:
@@ -388,25 +386,6 @@ class TestPromotionService(TestCase):
         resp = self.client.put(f"{BASE_URL}/0", json=payload)
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
 
-
-def test_update_promotion_not_found():
-    """It should return 404 when updating a non-existent Promotion"""
-    client = app.test_client()
-
-    payload = {
-        "name": "Ghost",
-        "promotion_type": "PERCENT",
-        "value": 5,
-        "product_id": 222,
-        "start_date": "2025-10-01",
-        "end_date": "2025-10-31",
-    }
-    resp = client.put("/promotions/999999", json=payload)
-    assert resp.status_code == 404
-    data = resp.get_json()
-    assert isinstance(data, dict)
-
-
     def test_update_promotion_id_mismatch_returns_400(self):
         """It should return 400 when body.id != path id"""
         created = self.client.post("/promotions", json={
@@ -423,63 +402,6 @@ def test_update_promotion_not_found():
         }
         resp = self.client.put(f"/promotions/{pid}", json=payload)
         self.assertEqual(resp.status_code, 400)
-
-
-    def test_list_promotions_all_returns_list(self):
-        """It should list all promotions when no query params are given"""
-        # ensure at least 2 items
-        a = {
-            "name": "New Year Sale",
-            "promotion_type": "BOGO",
-            "value": 1,
-            "product_id": 1,
-            "start_date": "2025-12-31",
-            "end_date": "2026-01-07",
-        }
-        b = {
-            "name": "Spring Festival",
-            "promotion_type": "BOGO",
-            "value": 2,
-            "product_id": 2,
-            "start_date": "2025-01-28",
-            "end_date": "2025-02-05",
-        }
-        self.client.post("/promotions", json=a)
-        self.client.post("/promotions", json=b)
-
-        resp = self.client.get("/promotions")
-        self.assertEqual(resp.status_code, 200)
-        data = resp.get_json()
-        self.assertIsInstance(data, list)
-        self.assertGreaterEqual(len(data), 2)
-
-
-def test_query_promotion_type_405_on_wrong_method_root():
-    """It should return JSON 405 for wrong method on /promotions (PATCH not allowed)"""
-    client = app.test_client()
-    resp = client.patch("/promotions", json={"x": 1})
-    assert resp.status_code == 405
-    data = resp.get_json()
-    assert isinstance(data, dict)  # our JSON error handler
-
-
-def test_method_not_allowed_returns_json_on_item():
-    """It should return JSON 405 for wrong method on /promotions/<id> (POST not allowed)"""
-    client = app.test_client()
-    resp = client.post("/promotions/1")  # POST not allowed here
-    assert resp.status_code == 405
-    data = resp.get_json()
-    assert isinstance(data, dict)  # our JSON error handler
-
-
-def test_not_found_returns_json():
-    """It should return JSON 404 for unknown routes"""
-    client = app.test_client()
-    resp = client.get("/no-such-route")
-    assert resp.status_code == 404
-    data = resp.get_json()
-    assert isinstance(data, dict)  # our JSON error handler
-
 
     def test_internal_server_error_returns_json(self):
         """It should return JSON 500 when an unhandled exception occurs"""
@@ -498,67 +420,3 @@ def test_not_found_returns_json():
                 app.config.pop("PROPAGATE_EXCEPTIONS", None)
             else:
                 app.config["PROPAGATE_EXCEPTIONS"] = prev
-
-    def test_update_promotion_not_found(self):
-        """It should return 404 when updating a non-existent Promotion"""
-        payload = {
-            "name": "Ghost",
-            "promotion_type": "PERCENT",
-            "value": 5,
-            "product_id": 222,
-            "start_date": "2025-10-01",
-            "end_date": "2025-10-31",
-        }
-        resp = self.client.put("/promotions/999999", json=payload)
-        self.assertEqual(resp.status_code, 404)
-        data = resp.get_json()
-        self.assertIsInstance(data, dict)
-
-    def test_list_promotions_all_returns_list(self):
-        """It should list all promotions when no query params are given"""
-        # ensure at least 2 items
-        a = {
-            "name": "New Year Sale",
-            "promotion_type": "PERCENT",
-            "value": 1,
-            "product_id": 1,
-            "start_date": "2025-12-31",
-            "end_date": "2026-01-07",
-        }
-        b = {
-            "name": "Spring Festival",
-            "promotion_type": "DISCOUNT",
-            "value": 2,
-            "product_id": 2,
-            "start_date": "2025-01-28",
-            "end_date": "2025-02-05",
-        }
-        self.client.post("/promotions", json=a)
-        self.client.post("/promotions", json=b)
-
-        resp = self.client.get("/promotions")
-        self.assertEqual(resp.status_code, 200)
-        data = resp.get_json()
-        self.assertIsInstance(data, list)
-        self.assertGreaterEqual(len(data), 2)
-
-    def test_query_promotion_type_405_on_wrong_method_root(self):
-        """It should return JSON 405 for wrong method on /promotions (PATCH not allowed)"""
-        resp = self.client.patch("/promotions", json={"x": 1})
-        self.assertEqual(resp.status_code, 405)
-        data = resp.get_json()
-        self.assertIsInstance(data, dict)  # our JSON error handler
-
-    def test_method_not_allowed_returns_json_on_item(self):
-        """It should return JSON 405 for wrong method on /promotions/<id> (POST not allowed)"""
-        resp = self.client.post("/promotions/1")  # POST not allowed here
-        self.assertEqual(resp.status_code, 405)
-        data = resp.get_json()
-        self.assertIsInstance(data, dict)  # our JSON error handler
-
-    def test_not_found_returns_json(self):
-        """It should return JSON 404 for unknown routes"""
-        resp = self.client.get("/no-such-route")
-        self.assertEqual(resp.status_code, 404)
-        data = resp.get_json()
-        self.assertIsInstance(data, dict)  # our JSON error handler

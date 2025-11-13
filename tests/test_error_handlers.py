@@ -1,9 +1,12 @@
-import logging
+"""
+Test cases for Error Handlers
+"""
 from unittest import TestCase
 from unittest.mock import patch
 from wsgi import app
 from service.common import status
-from service.models import db, Promotion, DataValidationError, DatabaseError
+from service.models import db, Promotion, DatabaseError
+
 
 class TestErrorHandlers(TestCase):
     """Error Handler Tests"""
@@ -58,7 +61,15 @@ class TestErrorHandlers(TestCase):
     def test_database_error(self, mock_create):
         """It should handle a database error"""
         mock_create.side_effect = DatabaseError("Database error")
-        resp = self.client.post("/promotions", json={"name": "test", "promotion_type": "BOGO", "value": 10, "product_id": 123, "start_date": "2025-01-01", "end_date": "2025-01-02"})
+        json_data = {
+            "name": "test",
+            "promotion_type": "BOGO",
+            "value": 10,
+            "product_id": 123,
+            "start_date": "2025-01-01",
+            "end_date": "2025-01-02"
+        }
+        resp = self.client.post("/promotions", json=json_data)
         self.assertEqual(resp.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @patch("service.routes.Promotion.all")

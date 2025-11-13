@@ -27,6 +27,7 @@ from datetime import date, timedelta
 # Third-party
 from flask import abort, current_app as app, jsonify, request, url_for
 from sqlalchemy import or_
+from flask_restx import Api, Resource, fields, reqparse, inputs
 
 # First-party
 from service.common import status  # HTTP status codes
@@ -48,33 +49,46 @@ def _parse_bool_strict(value: str):
         return False
     return None
 
+######################################################################
+# Configure Swagger before initializing it
+######################################################################
+api = Api(
+    app,
+    version="1.0.0",
+    title="Promotions REST API Service",
+    description="This is a Promotions service for managing promotional campaigns.",
+    default="promotions",
+    default_label="Promotions operations",
+    doc="/apidocs",
+    prefix="/api",  
+)
+
 
 ######################################################################
-# Root endpoint
+# Configure the Root route before OpenAPI
 ######################################################################
 @app.route("/")
 def index():
-    """Return the static UI"""
+    """Index page"""
     return app.send_static_file("index.html")
 
 
 ######################################################################
-# API endpoint
+# API Root endpoint (Flask-RESTX Resource)
 ######################################################################
-@app.route("/api")
-def api_index():
-    """Root URL response"""
-    return (
-        jsonify(
-            name="Promotions Service",
-            version="1.0.0",
-            description="RESTful service for managing promotions",
-            paths={
+@api.route("/")
+class ApiIndex(Resource):
+    """Root URL for the API"""
+    def get(self):
+        """Return API information"""
+        return {
+            "name": "Promotions Service",
+            "version": "1.0.0",
+            "description": "RESTful service for managing promotions",
+            "paths": {
                 "promotions": "/promotions",
             },
-        ),
-        status.HTTP_200_OK,
-    )
+        }, status.HTTP_200_OK
 
 
 ######################################################################

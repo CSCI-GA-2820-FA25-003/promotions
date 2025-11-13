@@ -85,7 +85,7 @@ class TestPromotionService(TestCase):
 
     def test_api_index(self):
         """It should call the API index"""
-        resp = self.client.get("/api")
+        resp = self.client.get("/api/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         data = resp.get_json()
         self.assertEqual(data["name"], "Promotions Service")
@@ -359,13 +359,13 @@ class TestPromotionService(TestCase):
             "start_date": "2025-10-01",
             "end_date": "2025-10-31",
         }
-        created = self.client.post("/promotions", json=payload)
+        created = self.client.post(BASE_URL, json=payload)
         self.assertEqual(created.status_code, 201)
         pid = created.get_json()["id"]
 
         # update it
         payload["name"] = "Member Exclusive"
-        resp = self.client.put(f"/promotions/{pid}", json=payload)
+        resp = self.client.put(f"{BASE_URL}/{pid}", json=payload)
         self.assertEqual(resp.status_code, 200)
         body = resp.get_json()
         self.assertEqual(body["name"], "Member Exclusive")
@@ -378,7 +378,7 @@ class TestPromotionService(TestCase):
 
     def test_update_promotion_id_mismatch_returns_400(self):
         """It should return 400 when body.id != path id"""
-        created = self.client.post("/promotions", json={
+        created = self.client.post(BASE_URL, json={
             "name": "Summer Clearance", "promotion_type": "BOGO", "value": 1, "product_id": 9,
             "start_date": "2025-08-15", "end_date": "2025-08-31",
         })
@@ -390,7 +390,7 @@ class TestPromotionService(TestCase):
             "name": "Summer Clearance", "promotion_type": "BOGO", "value": 1, "product_id": 9,
             "start_date": "2025-08-15", "end_date": "2025-08-31",
         }
-        resp = self.client.put(f"/promotions/{pid}", json=payload)
+        resp = self.client.put(f"{BASE_URL}/{pid}", json=payload)
         self.assertEqual(resp.status_code, 400)
 
     def test_internal_server_error_returns_json(self):
@@ -400,7 +400,7 @@ class TestPromotionService(TestCase):
         app.config["PROPAGATE_EXCEPTIONS"] = False
         try:
             with patch("service.routes.Promotion.find", side_effect=Exception("boom")):
-                resp = self.client.get("/promotions/1")
+                resp = self.client.get(f"{BASE_URL}/1")
             self.assertEqual(resp.status_code, 500)
             data = resp.get_json()
             self.assertIsInstance(data, dict)

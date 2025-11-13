@@ -27,7 +27,7 @@ from datetime import date, timedelta
 # Third-party
 from flask import current_app as app, jsonify, request
 from sqlalchemy import or_
-from flask_restx import Api, Resource
+from flask_restx import Api, Resource, fields, reqparse, inputs
 
 # First-party
 from service.common import status  # HTTP status codes
@@ -75,6 +75,44 @@ api = Api(
 
 
 ######################################################################
+# Define Swagger models
+######################################################################
+# Model for creating a promotion (no id field)
+create_promotion_model = api.model(
+    "Promotion",
+    {
+        "name": fields.String(required=True, description="The name of the promotion"),
+        "promotion_type": fields.String(
+            required=True,
+            description="The type of promotion",
+            enum=["BOGO", "DISCOUNT", "PERCENT"],
+        ),
+        "value": fields.Integer(required=True, description="The value of the promotion"),
+        "product_id": fields.Integer(required=True, description="The product ID this promotion applies to"),
+        "start_date": fields.Date(required=True, description="The start date of the promotion"),
+        "end_date": fields.Date(required=True, description="The end date of the promotion"),
+    },
+)
+
+# Model for promotion responses (includes id)
+promotion_model = api.inherit(
+    "PromotionModel",
+    create_promotion_model,
+    {
+        "id": fields.Integer(readOnly=True, description="The unique id assigned by the service"),
+    },
+)
+
+# Query string arguments for list/filter
+promotion_args = reqparse.RequestParser()
+promotion_args.add_argument("id", type=int, location="args", required=False, help="Filter by promotion ID")
+promotion_args.add_argument("name", type=str, location="args", required=False, help="Filter by name")
+promotion_args.add_argument("product_id", type=int, location="args", required=False, help="Filter by product ID")
+promotion_args.add_argument("promotion_type", type=str, location="args", required=False, help="Filter by promotion type")
+promotion_args.add_argument("active", type=str, location="args", required=False, help="Filter by active status (true/false)")
+
+
+######################################################################
 # Configure the Root route before OpenAPI
 ######################################################################
 @app.route("/")
@@ -108,6 +146,9 @@ class ApiIndex(Resource):
 class PromotionCollection(Resource):
     """Handles all interactions with collections of Promotions"""
 
+    @api.doc("list_promotions")
+    @api.expect(promotion_args, validate=False)
+    @api.marshal_list_with(promotion_model)
     def get(self):
         """
         List Promotions
@@ -133,6 +174,10 @@ class PromotionCollection(Resource):
         results = [p.serialize() for p in promotions]
         return results, status.HTTP_200_OK
 
+    @api.doc("create_promotion")
+    @api.response(400, "Bad Request")
+    @api.expect(create_promotion_model)
+    @api.marshal_with(promotion_model, code=201)
     def post(self):
         """
         Create a Promotion
@@ -199,6 +244,9 @@ def _get_promotions_by_product_id(product_id):
 class PromotionResource(Resource):
     """Handles interactions with a single Promotion"""
 
+    @api.doc("get_promotion")
+    @api.response(404, "Promotion not found")
+    @api.marshal_with(promotion_model)
     def get(self, promotion_id):
         """
         Get a Promotion
@@ -213,6 +261,11 @@ class PromotionResource(Resource):
             )
         return promotion.serialize(), status.HTTP_200_OK
 
+    @api.doc("update_promotion")
+    @api.response(404, "Promotion not found")
+    @api.response(400, "Bad Request")
+    @api.expect(create_promotion_model)
+    @api.marshal_with(promotion_model)
     def put(self, promotion_id):
         """
         Update a Promotion
@@ -242,6 +295,9 @@ class PromotionResource(Resource):
 
         return promotion.serialize(), status.HTTP_200_OK
 
+    @api.doc("delete_promotion")
+    @api.response(204, "Promotion deleted")
+    @api.response(404, "Promotion not found")
     def delete(self, promotion_id):
         """
         Delete a Promotion
@@ -267,6 +323,10 @@ class PromotionResource(Resource):
 class DeactivateResource(Resource):
     """Deactivate action on a Promotion"""
 
+    @api.doc("deactivate_promotion")
+    @api.response(404, "Promotion not found")
+    @api.response(400, "Bad Request")
+    @api.marshal_with(promotion_model)
     def put(self, promotion_id):
         """
         Deactivate a Promotion

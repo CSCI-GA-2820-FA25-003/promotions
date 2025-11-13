@@ -51,15 +51,3 @@ def database_connection_error(error):
         "error": "Service Unavailable",
         "message": message,
     }, status.HTTP_503_SERVICE_UNAVAILABLE
-
-
-@api.errorhandler(Exception)
-def internal_server_error(error):
-    """Handles all unhandled exceptions with 500_INTERNAL_SERVER_ERROR"""
-    message = str(error)
-    app.logger.error("Unhandled exception: %s", message)
-    return {
-        "status_code": status.HTTP_500_INTERNAL_SERVER_ERROR,
-        "error": "Internal Server Error",
-        "message": message,
-    }, status.HTTP_500_INTERNAL_SERVER_ERROR

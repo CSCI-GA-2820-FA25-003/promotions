@@ -81,26 +81,6 @@ def step_impl(context):
         context.resp = requests.post(context.base_url + '/promotions', json=payload, headers=headers)
         assert context.resp.status_code == 201
 
-@when('I retrieve the promotion named "{name}"')
-def step_impl(context, name):
-    """
-    Retrieves a promotion by name and populates the form
-    """
-    headers = {'Content-Type': 'application/json'}
-    context.resp = requests.get(context.base_url + '/promotions', params={'name': name}, headers=headers)
-    assert context.resp.status_code == 200
-    data = context.resp.json()
-    assert len(data) > 0
-    promotion = data[0]
-
-    # Populate the form
-    context.browser.find_element(By.ID, "promotion_id").send_keys(promotion['id'])
-    context.browser.find_element(By.ID, "promotion_name").send_keys(promotion['name'])
-    context.browser.find_element(By.ID, "promotion_promotion_type").send_keys(promotion['promotion_type'])
-    context.browser.find_element(By.ID, "promotion_value").send_keys(promotion['value'])
-    context.browser.find_element(By.ID, "promotion_product_id").send_keys(promotion['product_id'])
-    context.browser.find_element(By.ID, "promotion_start_date").send_keys(promotion['start_date'])
-    context.browser.find_element(By.ID, "promotion_end_date").send_keys(promotion['end_date'])
 
 @when('I visit the "Home Page"')
 def step_impl(context: Any) -> None:
@@ -120,152 +100,7 @@ def step_impl(context: Any, text_string: str) -> None:
     assert text_string not in element.text
 
 
-@when('I set the "{element_name}" to "{text_string}"')
-def step_impl(context: Any, element_name: str, text_string: str) -> None:
-    prefix = get_prefix(context)
-    element_id = prefix + element_name.lower().replace(" ", "_")
-    element = context.browser.find_element(By.ID, element_id)
-    element.clear()
-    element.send_keys(text_string)
 
-
-@when('I select "{text}" in the "{element_name}" dropdown')
-def step_impl(context: Any, text: str, element_name: str) -> None:
-    prefix = get_prefix(context)
-    element_id = prefix + element_name.lower().replace(" ", "_")
-    element = Select(context.browser.find_element(By.ID, element_id))
-    element.select_by_visible_text(text)
-
-
-@then('I should see "{text}" in the "{element_name}" dropdown')
-def step_impl(context: Any, text: str, element_name: str) -> None:
-    prefix = get_prefix(context)
-    element_id = prefix + element_name.lower().replace(" ", "_")
-    element = Select(context.browser.find_element(By.ID, element_id))
-    assert element.first_selected_option.text == text
-
-
-@then('the "{element_name}" field should be empty')
-def step_impl(context: Any, element_name: str) -> None:
-    prefix = get_prefix(context)
-    element_id = prefix + element_name.lower().replace(" ", "_")
-    element = context.browser.find_element(By.ID, element_id)
-    assert element.get_attribute("value") == ""
-
-
-##################################################################
-# These two function simulate copy and paste
-##################################################################
-@when('I copy the "{element_name}" field')
-def step_impl(context: Any, element_name: str) -> None:
-    prefix = get_prefix(context)
-    element_id = prefix + element_name.lower().replace(" ", "_")
-    element = WebDriverWait(context.browser, context.wait_seconds).until(
-        expected_conditions.presence_of_element_located((By.ID, element_id))
-    )
-    context.clipboard = element.get_attribute("value")
-    logging.info("Clipboard contains: %s", context.clipboard)
-
-
-@when('I paste the "{element_name}" field')
-def step_impl(context: Any, element_name: str) -> None:
-    prefix = get_prefix(context)
-    element_id = prefix + element_name.lower().replace(" ", "_")
-    element = WebDriverWait(context.browser, context.wait_seconds).until(
-        expected_conditions.presence_of_element_located((By.ID, element_id))
-    )
-    element.clear()
-    element.send_keys(context.clipboard)
-
-
-##################################################################
-# This code works because of the following naming convention:
-# The buttons have an id in the html hat is the button text
-# in lowercase followed by '-btn' so the Clear button has an id of
-# id='clear-btn'. That allows us to lowercase the name and add '-btn'
-# to get the element id of any button
-##################################################################
-
-
-@when('I press the "{button}" button')
-def step_impl(context: Any, button: str) -> None:
-    button_id = button.lower().replace(" ", "_") + "-btn"
-    context.browser.find_element(By.ID, button_id).click()
-
-
-@then('I should see "{name}" in the results')
-def step_impl(context: Any, name: str) -> None:
-    found = WebDriverWait(context.browser, context.wait_seconds).until(
-        expected_conditions.text_to_be_present_in_element(
-            (By.ID, "search_results"), name
-        )
-    )
-    assert found
-
-
-@then('I should not see "{name}" in the results')
-def step_impl(context: Any, name: str) -> None:
-    element = context.browser.find_element(By.ID, "search_results")
-    assert name not in element.text
-
-
-@then('I should see the message "{message}"')
-def step_impl(context: Any, message: str) -> None:
-    # First wait for flash_message element to be present
-    element = WebDriverWait(context.browser, context.wait_seconds).until(
-        expected_conditions.presence_of_element_located((By.ID, "flash_message"))
-    )
-
-    # Wait for the message to change from initial "Ready..." state
-    import time
-    time.sleep(0.5)  # Give AJAX time to complete
-
-    actual_message = element.text
-    logging.info(f"Expected: '{message}', Actual: '{actual_message}'")
-
-    try:
-        found = WebDriverWait(context.browser, context.wait_seconds).until(
-            expected_conditions.text_to_be_present_in_element(
-                (By.ID, "flash_message"), message
-            )
-        )
-        assert found
-    except Exception as e:
-        # Print actual message for debugging
-        actual = context.browser.find_element(By.ID, "flash_message").text
-        raise AssertionError(f"Expected message '{message}' but got '{actual}'")
-
-
-##################################################################
-# This code works because of the following naming convention:
-# The id field for text input in the html is the element name
-# prefixed by ID_PREFIX so the Name field has an id='pet_name'
-# We can then lowercase the name and prefix with pet_ to get the id
-##################################################################
-
-
-@then('I should see "{text_string}" in the "{element_name}" field')
-def step_impl(context: Any, text_string: str, element_name: str) -> None:
-    prefix = get_prefix(context)
-    element_id = prefix + element_name.lower().replace(" ", "_")
-
-    found = WebDriverWait(context.browser, context.wait_seconds).until(
-        expected_conditions.text_to_be_present_in_element_value(
-            (By.ID, element_id), text_string
-        )
-    )
-    assert found
-
-
-@when('I change "{element_name}" to "{text_string}"')
-def step_impl(context: Any, element_name: str, text_string: str) -> None:
-    prefix = get_prefix(context)
-    element_id = prefix + element_name.lower().replace(" ", "_")
-    element = WebDriverWait(context.browser, context.wait_seconds).until(
-        expected_conditions.presence_of_element_located((By.ID, element_id))
-    )
-    element.clear()
-    element.send_keys(text_string)
 
 
 ##################################################################
@@ -273,24 +108,7 @@ def step_impl(context: Any, element_name: str, text_string: str) -> None:
 ##################################################################
 
 
-@given('the server is running')
-def step_impl(context: Any) -> None:
-    """Verify the server is accessible"""
-    import requests
-    try:
-        response = requests.get(context.base_url, timeout=5)
-        assert response.status_code in [200, 404, 302]
-    except Exception as e:
-        raise AssertionError(f"Server is not running at {context.base_url}: {e}")
 
-
-@when('I go to "{path}"')
-def step_impl(context: Any, path: str) -> None:
-    """Navigate to a specific path"""
-    context.browser.get(context.base_url + path)
-    # Wait for page to load
-    import time
-    time.sleep(0.5)
 
 
 @when('I click "{button_text}"')

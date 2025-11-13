@@ -311,12 +311,3 @@ def health():
     """
     app.logger.info("Health check requested")
     return jsonify(status="OK"), status.HTTP_200_OK
-
-
-######################################################################
-# V2 - Modern UI
-######################################################################
-@app.route("/v2")
-def index_v2():
-    """Return the static UI"""
-    return app.send_static_file("v2/index.html")

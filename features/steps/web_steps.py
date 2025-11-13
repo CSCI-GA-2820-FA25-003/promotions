@@ -78,7 +78,8 @@ def step_impl(context):
             "start_date": row['Start Date'],
             "end_date": row['End Date']
         }
-        context.resp = requests.post(context.base_url + '/promotions', json=payload, headers=headers)
+        context.resp = requests.post(context.base_url + '/api/promotions', json=payload, headers=headers)
+
         assert context.resp.status_code == 201
 
 
@@ -104,7 +105,7 @@ def step_impl(context: Any, text_string: str) -> None:
 
 
 ##################################################################
-# V2 Modal Steps for BDD Testing
+# Modal Steps for BDD Testing
 ##################################################################
 
 
@@ -125,12 +126,12 @@ def step_impl(context: Any, button_text: str) -> None:
     raise AssertionError(f"Button with text '{button_text}' not found")
 
 
-@when('I fill the create form with:')
+@when('I fill the create form with')
 def step_impl(context: Any) -> None:
     """Fill the create form with data from table (horizontal format with headers)"""
     import time
 
-    # Map column headers to input IDs in the v2 modal
+    # Map column headers to input IDs in the modal
     field_map = {
         'Name':            'inputName',
         'Promotion Type':  'inputType',
@@ -198,7 +199,7 @@ def step_impl(context: Any, name: str) -> None:
 
 
 ##################################################################
-# V2 Delete Steps
+# Delete Steps
 ##################################################################
 
 
@@ -260,7 +261,9 @@ def step_impl(context: Any) -> None:
 def step_impl(context: Any, name: str) -> None:
     """Verify the promotion is no longer in the table"""
     import time
-    time.sleep(0.5)  # Give table time to update
+
+    # Wait for table to refresh after delete
+    time.sleep(1.5)
 
     table = context.browser.find_element(By.ID, "promotions_table")
     table_text = table.text
@@ -269,7 +272,7 @@ def step_impl(context: Any, name: str) -> None:
 
 
 ##################################################################
-# V2 Edit Steps
+# Edit Steps
 ##################################################################
 
 
@@ -314,11 +317,11 @@ def step_impl(context: Any) -> None:
     logging.info(f"Edit modal is showing with title: {modal_title}")
 
 
-@when('I fill the edit form with:')
+@when('I fill the edit form with')
 def step_impl(context: Any) -> None:
     """Fill the edit form with data from table (key-value pairs)"""
 
-    # Map field names to input IDs in the v2 edit modal
+    # Map field names to input IDs in the edit modal
     field_map = {
         'name': 'editName',
         'promotion_type': 'editType',
@@ -381,7 +384,7 @@ def step_impl(context: Any) -> None:
 
 
 ##################################################################
-# V2 Filter Steps
+# Filter Steps
 ##################################################################
 
 

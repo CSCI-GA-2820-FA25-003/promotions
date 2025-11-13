@@ -48,7 +48,7 @@
     tbody.innerHTML = '<tr><td colspan="8" class="text-center small text-muted">Loading...</td></tr>';
 
     try {
-      var url = '/promotions';
+      var url = '/api/promotions';
       if (queryParams) {
         url += '?' + queryParams;
       }
@@ -293,7 +293,7 @@
       createForm.setAttribute('aria-busy', 'true');
 
       try {
-        var res = await fetch('/promotions', {
+        var res = await fetch('/api/promotions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'same-origin',
@@ -418,7 +418,7 @@
         confirmBtn.textContent = 'Deleting...';
 
         try {
-          var res = await fetch('/promotions/' + currentDeleteId, {
+          var res = await fetch('/api/promotions/' + currentDeleteId, {
             method: 'DELETE',
             credentials: 'same-origin'
           });
@@ -610,7 +610,7 @@
       editForm.setAttribute('aria-busy', 'true');
 
       try {
-        var res = await fetch('/promotions/' + currentEditId, {
+        var res = await fetch('/api/promotions/' + currentEditId, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'same-origin',

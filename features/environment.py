@@ -134,14 +134,14 @@ def before_scenario(context, scenario):
 
     # Get all promotions
     try:
-        response = requests.get(f"{context.base_url}/promotions", timeout=5)
+        response = requests.get(f"{context.base_url}/api/promotions", timeout=5)
         if response.status_code == 200:
             promotions = response.json()
             # Delete each promotion
             for promotion in promotions:
                 promotion_id = promotion.get('id') or promotion.get('promotion_id')
                 if promotion_id:
-                    requests.delete(f"{context.base_url}/promotions/{promotion_id}", timeout=5)
+                    requests.delete(f"{context.base_url}/api/promotions/{promotion_id}", timeout=5)
     except Exception as e:
         # If cleanup fails, continue anyway (database might be empty)
         pass

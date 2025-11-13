@@ -25,9 +25,9 @@ Delete and List Promotions
 from datetime import date, timedelta
 
 # Third-party
-from flask import current_app as app, jsonify, request, url_for
+from flask import current_app as app, jsonify, request
 from sqlalchemy import or_
-from flask_restx import Api, Resource, fields, reqparse, inputs
+from flask_restx import Api, Resource
 
 # First-party
 from service.common import status  # HTTP status codes
@@ -58,6 +58,7 @@ def _parse_bool_strict(value: str):
         return False
     return None
 
+
 ######################################################################
 # Configure Swagger before initializing it
 ######################################################################
@@ -69,7 +70,7 @@ api = Api(
     default="promotions",
     default_label="Promotions operations",
     doc="/apidocs",
-    prefix="/api",  
+    prefix="/api",
 )
 
 
@@ -182,11 +183,12 @@ def _get_active_promotions(active_raw):
 
 
 def _get_promotions_by_product_id(product_id):
+    """Get promotions by product_id, validating the input"""
     try:
         pid = int(product_id)
-        return Promotion.find_by_product_id(pid)
     except ValueError:
         abort(status.HTTP_400_BAD_REQUEST, f"Invalid value for query parameter 'product_id': {product_id}")
+    return Promotion.find_by_product_id(pid)
 
 
 ######################################################################

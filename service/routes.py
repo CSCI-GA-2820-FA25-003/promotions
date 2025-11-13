@@ -27,7 +27,7 @@ from datetime import date, timedelta
 # Third-party
 from flask import current_app as app, jsonify, request
 from sqlalchemy import or_
-from flask_restx import Api, Resource, fields, reqparse, inputs
+from flask_restx import Api, Resource, fields, reqparse
 
 # First-party
 from service.common import status  # HTTP status codes

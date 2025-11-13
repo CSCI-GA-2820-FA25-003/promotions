@@ -21,6 +21,7 @@ Test cases for Promotion Model
 # pylint: disable=duplicate-code
 import os
 import logging
+import unittest
 from unittest import TestCase
 from unittest.mock import patch
 from datetime import date, timedelta
@@ -28,7 +29,7 @@ from datetime import date, timedelta
 import pytest
 
 from wsgi import app
-from service.models import Promotion, DataValidationError, db
+from service.models import Promotion, DataValidationError, DatabaseError, db
 from tests.factories import PromotionFactory
 
 DATABASE_URI = os.getenv(
@@ -132,7 +133,6 @@ class TestPromotionModel(TestCaseBase):
     def test_deserialize_a_promotion(self):
         """It should de-serialize a Promotion"""
         data = PromotionFactory().serialize()
-        data.pop("id", None)  # factories include id; remove for deserialize()
         promotion = Promotion()
         promotion.deserialize(data)
         self.assertIsNotNone(promotion)
@@ -161,7 +161,6 @@ class TestPromotionModel(TestCaseBase):
         test_promotion = PromotionFactory()
         data = test_promotion.serialize()
         data["value"] = "not_a_number"
-        data.pop("id", None)
         promotion = Promotion()
         self.assertRaises(DataValidationError, promotion.deserialize, data)
 
@@ -170,7 +169,6 @@ class TestPromotionModel(TestCaseBase):
         test_promotion = PromotionFactory()
         data = test_promotion.serialize()
         data["product_id"] = "not_a_number"
-        data.pop("id", None)
         promotion = Promotion()
         self.assertRaises(DataValidationError, promotion.deserialize, data)
 
@@ -179,21 +177,79 @@ class TestPromotionModel(TestCaseBase):
         test_promotion = PromotionFactory()
         data = test_promotion.serialize()
         data["start_date"] = "invalid-date"
-        data.pop("id", None)
         promotion = Promotion()
         self.assertRaises(DataValidationError, promotion.deserialize, data)
+
+    def test_deserialize_bad_end_date_format(self):
+        """It should not deserialize a bad end_date format"""
+        p = PromotionFactory().serialize()
+        p["end_date"] = "01-01-2030"  # invalid ISO date
+        p.pop("id", None)
+        promo = Promotion()
+        with self.assertRaises(DataValidationError):
+            promo.deserialize(p)
 
     def test_deserialize_attribute_error(self):
         """It should not deserialize with attribute error"""
         promotion = Promotion()
+        # This should trigger AttributeError -> DataValidationError
         with self.assertRaises(DataValidationError):
             promotion.deserialize({"invalid_field": "value"})
 
     def test_deserialize_key_error(self):
         """It should not deserialize with missing key"""
         promotion = Promotion()
+        # Missing required fields should trigger KeyError -> DataValidationError
         with self.assertRaises(DataValidationError):
             promotion.deserialize({"name": "Test"})  # Missing other required fields
+
+    def test_deserialize_bad_value_type(self):
+        """It should fail to deserialize with a non-integer value"""
+        data = PromotionFactory().serialize()
+        data["value"] = "not-an-int"
+        promo = Promotion()
+        with self.assertRaises(DataValidationError):
+            promo.deserialize(data)
+
+    def test_deserialize_bad_date_format(self):
+        """It should fail to deserialize with a non-ISO date format"""
+        data = PromotionFactory().serialize()
+        data["start_date"] = "01-01-2030"  # Invalid format
+        promo = Promotion()
+        with self.assertRaises(DataValidationError):
+            promo.deserialize(data)
+
+    def test_deserialize_name_not_string(self):
+        """It should fail to deserialize when name is not a string"""
+        data = PromotionFactory().serialize()
+        data["name"] = 12345
+        promo = Promotion()
+        with self.assertRaises(DataValidationError):
+            promo.deserialize(data)
+
+    def test_deserialize_missing_date(self):
+        """It should fail to deserialize when date field is missing"""
+        data = PromotionFactory().serialize()
+        del data["start_date"]
+        promo = Promotion()
+        with self.assertRaises(DataValidationError):
+            promo.deserialize(data)
+
+    def test_deserialize_promotion_type_not_string(self):
+        """It should fail when promotion_type is not a string"""
+        data = PromotionFactory().serialize()
+        data["promotion_type"] = 12345
+        promo = Promotion()
+        with self.assertRaises(DataValidationError):
+            promo.deserialize(data)
+
+    def test_deserialize_missing_product_id(self):
+        """It should fail when product_id is missing"""
+        data = PromotionFactory().serialize()
+        del data["product_id"]
+        promo = Promotion()
+        with self.assertRaises(DataValidationError):
+            promo.deserialize(data)
 
 
 ######################################################################
@@ -207,25 +263,30 @@ class TestExceptionHandlers(TestCaseBase):
         """It should catch a create exception"""
         mock_commit.side_effect = Exception("Database error")
         promotion = PromotionFactory()
-        # create() should map DB exception to DataValidationError for tests
-        self.assertRaises(DataValidationError, promotion.create)
+        self.assertRaises(DatabaseError, promotion.create)
 
     @patch("service.models.db.session.commit")
     def test_update_exception(self, mock_commit):
         """It should catch a update exception"""
+        # First create the promotion normally
         promotion = PromotionFactory()
         promotion.create()
         promotion.name = "Updated Name"
+
+        # Then mock only the update call
         mock_commit.side_effect = Exception("Database error")
-        self.assertRaises(DataValidationError, promotion.update)
+        self.assertRaises(DatabaseError, promotion.update)
 
     @patch("service.models.db.session.commit")
     def test_delete_exception(self, mock_commit):
         """It should catch a delete exception"""
+        # First create the promotion normally
         promotion = PromotionFactory()
         promotion.create()
+
+        # Then mock only the delete call
         mock_commit.side_effect = Exception("Database error")
-        self.assertRaises(DataValidationError, promotion.delete)
+        self.assertRaises(DatabaseError, promotion.delete)
 
 
 ######################################################################
@@ -241,7 +302,9 @@ class TestModelQueries(TestCaseBase):
             promotion = PromotionFactory()
             promotion.create()
             promotions.append(promotion)
+        # make sure they got saved
         self.assertEqual(len(Promotion.all()), 5)
+        # find the 2nd promotion in the list
         promotion = Promotion.find(promotions[1].id)
         self.assertIsNotNone(promotion)
         self.assertEqual(promotion.id, promotions[1].id)
@@ -249,46 +312,64 @@ class TestModelQueries(TestCaseBase):
         self.assertEqual(promotion.promotion_type, promotions[1].promotion_type)
 
     def test_find_by_name(self):
-        """It should Find Promotions by Name"""
+        """It should Find Promotions by Name (list)"""
         for _ in range(10):
             promotion = PromotionFactory()
             promotion.create()
         name = Promotion.all()[0].name
-        found = Promotion.find_by_name(name)  # returns Query
+        found = Promotion.find_by_name(name)  # returns list in current code
         count = len([p for p in Promotion.all() if p.name == name])
-        self.assertEqual(found.count(), count)
+        self.assertEqual(len(found), count)
         for promotion in found:
             self.assertEqual(promotion.name, name)
 
-    def test_find_by_category(self):
-        """It should Find Promotions by Category (product_id)"""
+    def test_find_by_product_id(self):
+        """It should Find Promotions by product_id (list)"""
         for _ in range(10):
             promotion = PromotionFactory()
             promotion.create()
-        product_id = Promotion.all()[0].product_id
-        found = Promotion.find_by_category(str(product_id))  # returns Query
-        count = len([p for p in Promotion.all() if p.product_id == product_id])
-        self.assertEqual(found.count(), count)
+        pid = Promotion.all()[0].product_id
+        found = Promotion.find_by_product_id(str(pid))  # supports numeric string
+        count = len([p for p in Promotion.all() if p.product_id == pid])
+        self.assertEqual(len(found), count)
         for promotion in found:
-            self.assertEqual(promotion.product_id, product_id)
+            self.assertEqual(promotion.product_id, pid)
 
-    def test_find_by_category_invalid(self):
-        """It should handle invalid category gracefully"""
-        found = Promotion.find_by_category("invalid")
-        self.assertEqual(found.count(), 0)
-
-    def test_find_by_id_method(self):
-        """It should Find a Promotion by ID using find_by_id method"""
-        promotion = PromotionFactory()
-        promotion.create()
-        found = Promotion.find_by_id(promotion.id)
-        self.assertEqual(len(found), 1)
-        self.assertEqual(found[0].id, promotion.id)
-        self.assertEqual(found[0].name, promotion.name)
+    def test_find_by_product_id_invalid(self):
+        """It should handle invalid product_id gracefully (empty list)"""
+        found = Promotion.find_by_product_id("invalid")
+        self.assertEqual(len(found), 0)
 
     def test_find_invalid_id_returns_none(self):
         """It should return None for invalid id in find()"""
         self.assertIsNone(Promotion.find("invalid"))
+
+    def test_find_active_promotions(self):
+        """It should find only the promotions active today (model query)"""
+        today = date.today()
+
+        active = PromotionFactory(
+            start_date=today - timedelta(days=1),
+            end_date=today + timedelta(days=1),
+        )
+        active.create()
+
+        expired = PromotionFactory(
+            start_date=today - timedelta(days=10),
+            end_date=today - timedelta(days=5),
+        )
+        expired.create()
+
+        future = PromotionFactory(
+            start_date=today + timedelta(days=1),
+            end_date=today + timedelta(days=5),
+        )
+        future.create()
+
+        found = Promotion.find_active()
+        assert isinstance(found, list)
+        assert len(found) == 1
+        assert found[0].id == active.id
 
 
 ######################################################################
@@ -322,56 +403,3 @@ def test_deserialize_bad_promotion_type():
     promo = Promotion()
     with pytest.raises(DataValidationError):
         promo.deserialize(p)
-
-
-# ---------- Extra coverage for model helpers ----------
-
-def test_model_find_active_helper_direct():
-    """Call find_active() directly to cover model active filter"""
-    today = date.today()
-
-    active = PromotionFactory(
-        start_date=today - timedelta(days=1),
-        end_date=today + timedelta(days=1),
-        promotion_type="AMOUNT_OFF",
-        product_id=91001,
-    )
-    active.create()
-
-    expired = PromotionFactory(
-        start_date=today - timedelta(days=10),
-        end_date=today - timedelta(days=5),
-        promotion_type="BOGO",
-        product_id=91002,
-    )
-    expired.create()
-
-    future = PromotionFactory(
-        start_date=today + timedelta(days=2),
-        end_date=today + timedelta(days=3),
-        promotion_type="AMOUNT_OFF",
-        product_id=91003,
-    )
-    future.create()
-
-    found = Promotion.find_active()
-    assert isinstance(found, list)
-    ids = [p.id for p in found]
-    assert active.id in ids
-    assert expired.id not in ids and future.id not in ids
-
-
-def test_model_find_by_product_id_and_type_helpers_direct():
-    """Call find_by_product_id and find_by_promotion_type to boost coverage"""
-    p1 = PromotionFactory(promotion_type="AMOUNT_OFF", product_id=92001)
-    p1.create()
-    p2 = PromotionFactory(promotion_type="BOGO", product_id=92002)
-    p2.create()
-
-    by_pid = Promotion.find_by_product_id(92001)
-    assert isinstance(by_pid, list)
-    assert len(by_pid) == 1 and by_pid[0].id == p1.id
-
-    by_type = Promotion.find_by_promotion_type("BOGO")
-    assert isinstance(by_type, list)
-    assert any(p.id == p2.id for p in by_type)

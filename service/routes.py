@@ -100,58 +100,56 @@ def list_promotions():
     """
     app.logger.info("Request to list Promotions")
 
-    promotion_id = request.args.get("id")
-    active_raw = request.args.get("active")
-    name = request.args.get("name")
-    product_id = request.args.get("product_id")
-    ptype = request.args.get("promotion_type")
+    filters = {
+        "id": lambda: [Promotion.find(request.args.get("id"))] if Promotion.find(request.args.get("id")) else [],
+        "active": lambda: _get_active_promotions(request.args.get("active")),
+        "name": lambda: Promotion.find_by_name(request.args.get("name").strip()),
+        "product_id": lambda: _get_promotions_by_product_id(request.args.get("product_id")),
+        "promotion_type": lambda: Promotion.find_by_promotion_type(request.args.get("promotion_type").strip()),
+    }
 
-    # 1) by id
-    if promotion_id:
-        app.logger.info("Filtering by id=%s", promotion_id)
-        p = Promotion.find(promotion_id)
-        promotions = [p] if p else []
-
-    # 2) by active (strict)
-    elif active_raw is not None:
-        active = _parse_bool_strict(active_raw)
-        if active is None:
-            abort(
-                status.HTTP_400_BAD_REQUEST,
-                (
-                    "Invalid value for query parameter 'active'. "
-                    "Accepted: true, false, 1, 0, yes, no (case-insensitive). "
-                    f"Received: {active_raw!r}"
-                ),
-            )
-
-        today = date.today()
-        if active is True:
-            app.logger.info("Filtering by active promotions (inclusive)")
-            promotions = Promotion.find_active()  # start_date <= today <= end_date  (model)  # noqa
-        else:
-            app.logger.info("Filtering by inactive promotions (not active today)")
-            promotions = list(
-                Promotion.query.filter(
-                    or_(Promotion.start_date > today, Promotion.end_date < today)
-                ).all()
-            )
-
-    # 3+) the rest
-    elif name:
-        app.logger.info("Filtering by name=%s", name)
-        promotions = Promotion.find_by_name(name.strip())
-    elif product_id:
-        app.logger.info("Filtering by product_id=%s", product_id)
-        promotions = Promotion.find_by_product_id(product_id.strip())
-    elif ptype:
-        app.logger.info("Filtering by promotion_type=%s", ptype)
-        promotions = Promotion.find_by_promotion_type(ptype.strip())
+    for param, filter_func in filters.items():
+        if request.args.get(param):
+            promotions = filter_func()
+            break
     else:
         promotions = Promotion.all()
 
     results = [p.serialize() for p in promotions]
     return jsonify(results), status.HTTP_200_OK
+
+
+def _get_active_promotions(active_raw):
+    active = _parse_bool_strict(active_raw)
+    if active is None:
+        abort(
+            status.HTTP_400_BAD_REQUEST,
+            (
+                "Invalid value for query parameter 'active'. "
+                "Accepted: true, false, 1, 0, yes, no (case-insensitive). "
+                f"Received: {active_raw!r}"
+            ),
+        )
+
+    today = date.today()
+    if active is True:
+        app.logger.info("Filtering by active promotions (inclusive)")
+        return Promotion.find_active()
+    else:
+        app.logger.info("Filtering by inactive promotions (not active today)")
+        return list(
+            Promotion.query.filter(
+                or_(Promotion.start_date > today, Promotion.end_date < today)
+            ).all()
+        )
+
+def _get_promotions_by_product_id(product_id):
+    try:
+        pid = int(product_id)
+        return Promotion.find_by_product_id(pid)
+    except ValueError:
+        abort(status.HTTP_400_BAD_REQUEST, f"Invalid value for query parameter 'product_id': {product_id}")
+
 
 
 ######################################################################

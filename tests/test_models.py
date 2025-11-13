@@ -21,10 +21,12 @@ Test cases for Promotion Model
 # pylint: disable=duplicate-code
 import os
 import logging
-import unittest
 from unittest import TestCase
 from unittest.mock import patch
 from datetime import date, timedelta
+
+import pytest
+
 from wsgi import app
 from service.models import Promotion, DataValidationError, DatabaseError, db
 from tests.factories import PromotionFactory
@@ -177,6 +179,15 @@ class TestPromotionModel(TestCaseBase):
         promotion = Promotion()
         self.assertRaises(DataValidationError, promotion.deserialize, data)
 
+    def test_deserialize_bad_end_date_format(self):
+        """It should not deserialize a bad end_date format"""
+        p = PromotionFactory().serialize()
+        p["end_date"] = "01-01-2030"  # invalid ISO date
+        p.pop("id", None)
+        promo = Promotion()
+        with self.assertRaises(DataValidationError):
+            promo.deserialize(p)
+
     def test_deserialize_attribute_error(self):
         """It should not deserialize with attribute error"""
         promotion = Promotion()
@@ -190,6 +201,54 @@ class TestPromotionModel(TestCaseBase):
         # Missing required fields should trigger KeyError -> DataValidationError
         with self.assertRaises(DataValidationError):
             promotion.deserialize({"name": "Test"})  # Missing other required fields
+
+    def test_deserialize_bad_value_type(self):
+        """It should fail to deserialize with a non-integer value"""
+        data = PromotionFactory().serialize()
+        data["value"] = "not-an-int"
+        promo = Promotion()
+        with self.assertRaises(DataValidationError):
+            promo.deserialize(data)
+
+    def test_deserialize_bad_date_format(self):
+        """It should fail to deserialize with a non-ISO date format"""
+        data = PromotionFactory().serialize()
+        data["start_date"] = "01-01-2030"  # Invalid format
+        promo = Promotion()
+        with self.assertRaises(DataValidationError):
+            promo.deserialize(data)
+
+    def test_deserialize_name_not_string(self):
+        """It should fail to deserialize when name is not a string"""
+        data = PromotionFactory().serialize()
+        data["name"] = 12345
+        promo = Promotion()
+        with self.assertRaises(DataValidationError):
+            promo.deserialize(data)
+
+    def test_deserialize_missing_date(self):
+        """It should fail to deserialize when date field is missing"""
+        data = PromotionFactory().serialize()
+        del data["start_date"]
+        promo = Promotion()
+        with self.assertRaises(DataValidationError):
+            promo.deserialize(data)
+
+    def test_deserialize_promotion_type_not_string(self):
+        """It should fail when promotion_type is not a string"""
+        data = PromotionFactory().serialize()
+        data["promotion_type"] = 12345
+        promo = Promotion()
+        with self.assertRaises(DataValidationError):
+            promo.deserialize(data)
+
+    def test_deserialize_missing_product_id(self):
+        """It should fail when product_id is missing"""
+        data = PromotionFactory().serialize()
+        del data["product_id"]
+        promo = Promotion()
+        with self.assertRaises(DataValidationError):
+            promo.deserialize(data)
 
 
 ######################################################################
@@ -312,44 +371,34 @@ class TestModelQueries(TestCaseBase):
         assert found[0].id == active.id
 
 
-class TestDeserializePatchBranches(unittest.TestCase):
-    """Covers new branches introduced by refactored deserialize()"""
+######################################################################
+#  A D D E D   F O R   I S S U E   #57
+######################################################################
+def test_deserialize_negative_value():
+    """value < 0 should be rejected"""
+    p = PromotionFactory().serialize()
+    p["value"] = -1
+    p.pop("id", None)
+    promo = Promotion()
+    with pytest.raises(DataValidationError):
+        promo.deserialize(p)
 
-    def test_deserialize_mapping_gate_non_dict(self):
-        """data not a Mapping -> 'data must be a mapping/dict'"""
-        p = Promotion()
-        with self.assertRaises(DataValidationError) as ctx:
-            p.deserialize("not a dict")
-        self.assertIn("mapping", str(ctx.exception).lower())
 
-    def test_deserialize_missing_start_date_key(self):
-        """missing 'start_date' -> _require_iso_date KeyError branch"""
-        payload = {
-            "name": "X",
-            "promotion_type": "Percentage off",
-            "value": 10,
-            "product_id": 1,
-            # "start_date" intentionally missing
-            "end_date": "2025-01-01",
-        }
-        p = Promotion()
-        with self.assertRaises(DataValidationError) as ctx:
-            p.deserialize(payload)
-        self.assertIn("missing 'start_date'", str(ctx.exception))
+def test_deserialize_non_positive_product_id():
+    """product_id <= 0 should be rejected"""
+    p = PromotionFactory().serialize()
+    p["product_id"] = 0
+    p.pop("id", None)
+    promo = Promotion()
+    with pytest.raises(DataValidationError):
+        promo.deserialize(p)
 
-    def test_deserialize_bad_end_date_format(self):
-        """bad ISO format for 'end_date' -> _require_iso_date format error branch"""
-        payload = {
-            "name": "X",
-            "promotion_type": "Percentage off",
-            "value": 10,
-            "product_id": 1,
-            "start_date": "2025-01-01",
-            "end_date": "01-01-2025",  # invalid ISO date
-        }
-        p = Promotion()
-        with self.assertRaises(DataValidationError) as ctx:
-            p.deserialize(payload)
-        msg = str(ctx.exception).lower()
-        self.assertIn("end_date", msg)
-        self.assertIn("iso date", msg)
+
+def test_deserialize_bad_promotion_type():
+    """Unsupported promotion_type should be rejected"""
+    p = PromotionFactory().serialize()
+    p["promotion_type"] = "Discount"  # not in allowed set
+    p.pop("id", None)
+    promo = Promotion()
+    with pytest.raises(DataValidationError):
+        promo.deserialize(p)

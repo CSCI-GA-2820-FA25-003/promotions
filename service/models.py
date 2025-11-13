@@ -66,6 +66,13 @@ class Promotion(db.Model):
         db.DateTime, default=db.func.now(), onupdate=db.func.now(), nullable=False
     )
 
+    # Allowed promotion types
+    ALLOWED_PROMOTION_TYPES = {
+        "PERCENT",
+        "DISCOUNT",
+        "BOGO",
+    }
+
     ##################################################
     # INSTANCE METHODS
     ##################################################
@@ -124,32 +131,62 @@ class Promotion(db.Model):
             "end_date": self.end_date.isoformat() if self.end_date else None,
         }
 
+    # ---------------------- helpers ----------------------
+
     @staticmethod
-    def _require_str(data: Mapping, key: str) -> str:
-        try:
-            value = data[key]
-        except KeyError as e:
-            raise DataValidationError(f"Invalid promotion: missing '{key}'") from e
-        if not isinstance(value, str):
-            raise DataValidationError(f"Field '{key}' must be a string")
+    def _require_mapping(data):
+        if not isinstance(data, Mapping):
+            raise DataValidationError("Invalid attribute: data must be a mapping/dict")
+
+    @staticmethod
+    def _validate_name(data: Mapping) -> str:
+        if "name" not in data:
+            raise DataValidationError("Invalid promotion: missing name")
+        name = data["name"]
+        if not isinstance(name, str):
+            raise DataValidationError("Field 'name' must be a string")
+        return name
+
+    def _validate_promotion_type(self, data: Mapping) -> str:
+        if "promotion_type" not in data:
+            raise DataValidationError("Invalid promotion: missing promotion_type")
+        ptype = data["promotion_type"]
+        if not isinstance(ptype, str):
+            raise DataValidationError("Field 'promotion_type' must be a string")
+        if ptype not in self.ALLOWED_PROMOTION_TYPES:
+            raise DataValidationError(
+                f"Invalid promotion_type '{ptype}'. "
+                f"Allowed: {sorted(self.ALLOWED_PROMOTION_TYPES)}"
+            )
+        return ptype
+
+    @staticmethod
+    def _validate_value(data: Mapping) -> int:
+        if "value" not in data:
+            raise DataValidationError("Invalid promotion: missing value")
+        value = data["value"]
+        if not isinstance(value, int):
+            raise DataValidationError("Field 'value' must be an integer")
+        if value < 0:
+            raise DataValidationError("Invalid value: must be >= 0")
         return value
 
     @staticmethod
-    def _require_int(data: Mapping, key: str) -> int:
-        try:
-            value = data[key]
-        except KeyError as e:
-            raise DataValidationError(f"Invalid promotion: missing '{key}'") from e
-        if not isinstance(value, int):
-            raise DataValidationError(f"Field '{key}' must be an integer")
-        return value
+    def _validate_product_id(data: Mapping) -> int:
+        if "product_id" not in data:
+            raise DataValidationError("Invalid promotion: missing product_id")
+        pid = data["product_id"]
+        if not isinstance(pid, int):
+            raise DataValidationError("Field 'product_id' must be an integer")
+        if pid <= 0:
+            raise DataValidationError("Invalid product_id: must be > 0")
+        return pid
 
     @staticmethod
     def _require_iso_date(data: Mapping, key: str) -> date:
-        try:
-            raw = data[key]
-        except KeyError as e:
-            raise DataValidationError(f"Invalid promotion: missing '{key}'") from e
+        if key not in data:
+            raise DataValidationError(f"Invalid promotion: missing {key}")
+        raw = data[key]
         try:
             return date.fromisoformat(raw)
         except Exception as e:
@@ -157,35 +194,18 @@ class Promotion(db.Model):
                 f"Field '{key}' must be an ISO date (YYYY-MM-DD)"
             ) from e
 
+    # ---------------------- public API ----------------------
+
     def deserialize(self, data: dict):
-        """
-        Deserializes a Promotion from a dictionary.
+        """Deserializes a Promotion from a dictionary and validates business rules."""
+        self._require_mapping(data)
 
-        Args:
-            data (dict): a dictionary containing the promotion data
-        """
-        # keep an explicit, human-friendly gate for bad body types
-        if not isinstance(data, Mapping):
-            # preserve the old "Invalid attribute" prefix pattern
-            raise DataValidationError("Invalid attribute: data must be a mapping/dict")
-
-        # required string fields
-        self.name = self._require_str(data, "name")
-        self.promotion_type = self._require_str(data, "promotion_type")
-
-        # required integer fields
-        self.value = self._require_int(data, "value")
-        self.product_id = self._require_int(data, "product_id")
-
-        # required ISO dates
+        self.name = self._validate_name(data)
+        self.promotion_type = self._validate_promotion_type(data)
+        self.value = self._validate_value(data)
+        self.product_id = self._validate_product_id(data)
         self.start_date = self._require_iso_date(data, "start_date")
         self.end_date = self._require_iso_date(data, "end_date")
-
-        # NOTE: If you later add a business rule check like
-        # if self.start_date > self.end_date:
-        #     raise DataValidationError("Invalid date range: start_date later than end_date")
-        # do it here; it won't increase complexity much.
-
         return self
 
     ##################################################

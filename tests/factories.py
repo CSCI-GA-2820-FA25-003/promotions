@@ -17,7 +17,7 @@ class PromotionFactory(factory.Factory):
 
     id = factory.Sequence(lambda n: n)
     name = factory.Faker("catch_phrase")
-    promotion_type = factory.Faker("random_element", elements=("Percentage off", "Buy One Get One", "Fixed amount off"))
+    promotion_type = factory.Faker("random_element", elements=("PERCENT", "DISCOUNT", "BOGO"))
     value = factory.Faker("random_int", min=1, max=99)
     product_id = factory.Faker("random_int", min=1, max=1000)
     start_date = factory.LazyFunction(date.today)

@@ -284,7 +284,7 @@ class TestPromotionService(TestCase):
 
     def test_query_by_promotion_type_returns_matches(self):
         """It should return only promotions with the given promotion_type (exact match)"""
-        r1 = self.client.post(BASE_URL, json=make_payload(name="A1", promotion_type="AMOUNT_OFF", value=10))
+        r1 = self.client.post(BASE_URL, json=make_payload(name="A1", promotion_type="DISCOUNT", value=10))
         r2 = self.client.post(BASE_URL, json=make_payload(name="B1", promotion_type="BOGO", value=100))
         self.assertEqual(r1.status_code, status.HTTP_201_CREATED)
         self.assertEqual(r2.status_code, status.HTTP_201_CREATED)
@@ -297,7 +297,7 @@ class TestPromotionService(TestCase):
 
     def test_query_promotion_type_blank(self):
         """It should return 200 and [] when ?promotion_type= is blank (only spaces)"""
-        r = self.client.post(BASE_URL, json=make_payload(name="X", promotion_type="AMOUNT_OFF"))
+        r = self.client.post(BASE_URL, json=make_payload(name="X", promotion_type="DISCOUNT"))
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
 
         resp = self.client.get(f"{BASE_URL}?promotion_type=   ")
@@ -306,7 +306,7 @@ class TestPromotionService(TestCase):
 
     def test_query_by_promotion_type_returns_empty_when_no_match(self):
         """It should return 200 and empty list when no promotions match"""
-        r = self.client.post(BASE_URL, json=make_payload(name="A1", promotion_type="AMOUNT_OFF", value=10))
+        r = self.client.post(BASE_URL, json=make_payload(name="A1", promotion_type="DISCOUNT", value=10))
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
 
         resp = self.client.get(f"{BASE_URL}?promotion_type=NON_EXISTENT_TYPE")

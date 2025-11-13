@@ -68,12 +68,9 @@ class Promotion(db.Model):
 
     # Allowed promotion types
     ALLOWED_PROMOTION_TYPES = {
-        "AMOUNT_OFF",
-        "PERCENTAGE_OFF",
-        "Percentage off",
-        "Buy One Get One",
+        "PERCENT",
+        "DISCOUNT",
         "BOGO",
-        "Fixed amount off",
     }
 
     ##################################################

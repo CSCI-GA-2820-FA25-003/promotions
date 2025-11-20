@@ -26,7 +26,7 @@ from click.testing import CliRunner
 
 # pylint: disable=unused-import
 from wsgi import app  # noqa: F401
-from service.common.cli_commands import db_create  # noqa: E402
+from service.common.cli_commands import db_create, load_data  # noqa: E402
 
 
 class TestFlaskCLI(TestCase):
@@ -42,3 +42,19 @@ class TestFlaskCLI(TestCase):
         with patch.dict(os.environ, {"FLASK_APP": "wsgi:app"}, clear=True):
             result = self.runner.invoke(db_create)
             self.assertEqual(result.exit_code, 0)
+
+    @patch("service.common.cli_commands.Promotion")
+    def test_load_data(self, promotion_mock):
+        """It should call the load-data command"""
+        # Mock the Promotion class
+        mock_promotion_instance = MagicMock()
+        promotion_mock.return_value = mock_promotion_instance
+
+        with patch.dict(os.environ, {"FLASK_APP": "wsgi:app"}, clear=True):
+            result = self.runner.invoke(load_data)
+            self.assertEqual(result.exit_code, 0)
+            # Verify that Promotion() was called multiple times (11 promotions)
+            self.assertEqual(promotion_mock.call_count, 11)
+            # Verify that deserialize and create were called
+            self.assertEqual(mock_promotion_instance.deserialize.call_count, 11)
+            self.assertEqual(mock_promotion_instance.create.call_count, 11)

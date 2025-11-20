@@ -16,8 +16,9 @@
 """
 Flask CLI Command Extensions
 """
+from datetime import date, timedelta
 from flask import current_app as app  # Import Flask application
-from service.models import db
+from service.models import db, Promotion
 
 
 ######################################################################
@@ -34,3 +35,125 @@ def db_create():
     db.drop_all()
     db.create_all()
     db.session.commit()
+
+
+######################################################################
+# Command to load sample data
+# Usage:
+#   flask load-data
+######################################################################
+@app.cli.command("load-data")
+def load_data():
+    """
+    Loads sample promotions data into the database for testing.
+    Creates various types of promotions: PERCENT, DISCOUNT, and BOGO.
+    """
+    app.logger.info("Loading sample data...")
+
+    # Sample data for different promotion types
+    today = date.today()
+    promotions = [
+        # PERCENT type promotions
+        {
+            "name": "Summer Sale 20% Off",
+            "promotion_type": "PERCENT",
+            "value": 20,
+            "product_id": 101,
+            "start_date": today.isoformat(),
+            "end_date": (today + timedelta(days=30)).isoformat()
+        },
+        {
+            "name": "Black Friday 50% Discount",
+            "promotion_type": "PERCENT",
+            "value": 50,
+            "product_id": 102,
+            "start_date": today.isoformat(),
+            "end_date": (today + timedelta(days=7)).isoformat()
+        },
+        {
+            "name": "Winter Clearance 30% Off",
+            "promotion_type": "PERCENT",
+            "value": 30,
+            "product_id": 103,
+            "start_date": (today - timedelta(days=10)).isoformat(),
+            "end_date": (today + timedelta(days=20)).isoformat()
+        },
+        # DISCOUNT type promotions
+        {
+            "name": "Holiday Special $10 Off",
+            "promotion_type": "DISCOUNT",
+            "value": 10,
+            "product_id": 201,
+            "start_date": today.isoformat(),
+            "end_date": (today + timedelta(days=15)).isoformat()
+        },
+        {
+            "name": "New Customer $25 Discount",
+            "promotion_type": "DISCOUNT",
+            "value": 25,
+            "product_id": 202,
+            "start_date": today.isoformat(),
+            "end_date": (today + timedelta(days=60)).isoformat()
+        },
+        {
+            "name": "Flash Sale $5 Off",
+            "promotion_type": "DISCOUNT",
+            "value": 5,
+            "product_id": 203,
+            "start_date": today.isoformat(),
+            "end_date": (today + timedelta(days=3)).isoformat()
+        },
+        # BOGO type promotions
+        {
+            "name": "Buy One Get One Free",
+            "promotion_type": "BOGO",
+            "value": 1,
+            "product_id": 301,
+            "start_date": today.isoformat(),
+            "end_date": (today + timedelta(days=14)).isoformat()
+        },
+        {
+            "name": "BOGO 50% Off Second Item",
+            "promotion_type": "BOGO",
+            "value": 50,
+            "product_id": 302,
+            "start_date": today.isoformat(),
+            "end_date": (today + timedelta(days=21)).isoformat()
+        },
+        {
+            "name": "Weekend BOGO Special",
+            "promotion_type": "BOGO",
+            "value": 1,
+            "product_id": 303,
+            "start_date": (today - timedelta(days=5)).isoformat(),
+            "end_date": (today + timedelta(days=2)).isoformat()
+        },
+        # Some expired promotions for testing inactive filter
+        {
+            "name": "Expired Spring Sale",
+            "promotion_type": "PERCENT",
+            "value": 25,
+            "product_id": 401,
+            "start_date": (today - timedelta(days=60)).isoformat(),
+            "end_date": (today - timedelta(days=30)).isoformat()
+        },
+        {
+            "name": "Past Holiday Discount",
+            "promotion_type": "DISCOUNT",
+            "value": 15,
+            "product_id": 402,
+            "start_date": (today - timedelta(days=45)).isoformat(),
+            "end_date": (today - timedelta(days=15)).isoformat()
+        },
+    ]
+
+    created_count = 0
+    for promo_data in promotions:
+        promotion = Promotion()
+        promotion.deserialize(promo_data)
+        promotion.create()
+        created_count += 1
+        app.logger.info("Created: %s (%s)", promotion.name, promotion.promotion_type)
+
+    app.logger.info("Loaded %d promotions into the database", created_count)
+    print(f"✓ Successfully loaded {created_count} sample promotions")

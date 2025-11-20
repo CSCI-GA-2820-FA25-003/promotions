@@ -125,14 +125,14 @@ remove:	## Stop and remove the buildx builder
 PORT ?= 8080
 BASE_URL ?= http://localhost:$(PORT)
 LOCAL_PORT ?= 8088
-.PHONY: bdd-setup run stop bdd pf
+.PHONY: bdd-setup serve stop bdd pf
 bdd-setup: ## Install Chromium & chromedriver for headless BDD
 	@echo "Installing Chromium + chromedriver..."
 	sudo apt-get update
 	sudo apt-get install -y chromium chromium-driver fonts-liberation
 	-which chromium || which chromium-browser || true
 	-which chromedriver || true
-run: ## Run the app locally on PORT (default 8080)
+serve: ## Run the app locally on PORT (default 8080)
 	@echo "Starting app on http://localhost:$(PORT)"
 	pipenv run gunicorn --bind 0.0.0.0:$(PORT) wsgi:app
 stop: ## Stop any process listening on PORT (default 8080)
@@ -151,13 +151,13 @@ verify: ## Smoke check the Kubernetes deployment (pods, service, ingress, HTTP)
 	: "$${KUBECONFIG:=/app/kubeconfig}"; \
 	NS="$${NS:-default}"; \
 	LABEL_SELECTOR="$${LABEL_SELECTOR:-app=promotions}"; \
-	SERVICE="$${SERVICE:-promotions-service}"; \
-	INGRESS="$${INGRESS:-promotions-ingress}"; \
-	VERIFY_PORT="$${VERIFY_PORT:-8080}"; \
-	HEALTH_PATH="$${HEALTH_PATH:-/health}"; \
-	PROMO_PATH="$${PROMO_PATH:-/promotions}"; \
-	printf "• Using KUBECONFIG=%s\n" "$$KUBECONFIG"; \
-	kubectl config current-context || true; \
+		SERVICE="$${SERVICE:-promotions-service}"; \
+		INGRESS="$${INGRESS:-promotions-ingress}"; \
+		VERIFY_PORT="$${VERIFY_PORT:-8080}"; \
+		HEALTH_PATH="$${HEALTH_PATH:-/health}"; \
+		PROMO_PATH="$${PROMO_PATH:-/api/promotions}"; \
+		printf "• Using KUBECONFIG=%s\n" "$$KUBECONFIG"; \
+		kubectl config current-context || true; \
 	printf "• Checking kubectl connectivity...\n"; \
 	kubectl cluster-info >/dev/null 2>&1 || kubectl get --raw=/version >/dev/null 2>&1 || { printf "✗ kubectl cannot reach the API server\n"; exit 1; }; \
 	printf "• Verifying pods are Ready (label=%s, ns=%s)...\n" "$$LABEL_SELECTOR" "$$NS"; \

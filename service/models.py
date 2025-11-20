@@ -206,6 +206,8 @@ class Promotion(db.Model):
         self.product_id = self._validate_product_id(data)
         self.start_date = self._require_iso_date(data, "start_date")
         self.end_date = self._require_iso_date(data, "end_date")
+        if self.start_date > self.end_date:
+            raise DataValidationError("start_date must be on or before end_date")
         return self
 
     ##################################################

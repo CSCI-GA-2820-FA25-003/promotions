@@ -135,6 +135,14 @@ class TestPromotionService(TestCase):
         resp = self.client.post(BASE_URL, json=payload)
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_create_promotion_start_after_end(self):
+        """It should not create a promotion when start_date > end_date"""
+        payload = make_payload(start_date="2030-12-31", end_date="2030-01-01")
+        resp = self.client.post(BASE_URL, json=payload)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        msg = resp.get_json().get("message", "")
+        self.assertIn("start_date", msg)
+
     def test_create_promotion_bad_product_id(self):
         """It should not create a promotion with bad product id"""
         payload = make_payload(product_id=0)

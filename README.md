@@ -30,22 +30,31 @@ This service provides a robust and consistent API for CRUD operations and queryi
     *   Open the Command Palette (Ctrl+Shift+P or Cmd+Shift+P) and select "Dev Containers: Reopen in Container".
     *   This will build the development container and open the project inside it, with all necessary dependencies pre-installed.
 
-2.  **Run the server**:
+2.  **Initialize the database**:
+    ```bash
+    # Create database tables
+    flask db-create
+
+    # Load sample data for testing(optional)
+    flask load-data
+    ```
+    
+3.  **Run the server**:
     ```bash
     flask run
     ```
     The service will be available at `http://127.0.0.1:8080` by default.
 
-3.  **Check syntax**:
+4.  **Check syntax**:
     ```bash
     make lint
     ```
 
-4.  **Run tests**:
+5.  **Run tests**:
     ```bash
     make test
     ```
-5.  **Run BDD tests**:
+6.  **Run BDD tests**:
     ```bash
     behave
     ```

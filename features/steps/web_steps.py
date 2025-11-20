@@ -27,6 +27,7 @@ For information on Waiting until elements are present in the HTML see:
 import re
 import logging
 from typing import Any
+from datetime import date, timedelta
 from behave import given, when, then  # pylint: disable=no-name-in-module
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import Select, WebDriverWait
@@ -196,6 +197,50 @@ def step_impl(context: Any, name: str) -> None:
         )
     )
     assert found, f"Promotion '{name}' not found in table"
+
+
+##################################################################
+# Action Steps
+##################################################################
+
+
+@when('I click the deactivate button for "{name}"')
+def step_impl(context: Any, name: str) -> None:
+    """Click the deactivate button for a specific promotion"""
+    import time
+    buttons = context.browser.find_elements(By.CLASS_NAME, "deactivate-btn")
+
+    for button in buttons:
+        if button.get_attribute("data-name") == name:
+            context.browser.execute_script("arguments[0].scrollIntoView({block: 'center'});", button)
+            time.sleep(0.3)
+            button.click()
+            # Accept confirmation dialog
+            alert = WebDriverWait(context.browser, context.wait_seconds).until(
+                expected_conditions.alert_is_present()
+            )
+            alert.accept()
+            return
+
+    raise AssertionError(f"Deactivate button for '{name}' not found")
+
+
+@then('the end date for "{name}" should be yesterday in the promotions table')
+def step_impl(context: Any, name: str) -> None:
+    """Verify that the promotion shows yesterday as the end date"""
+    expected_end_date = (date.today() - timedelta(days=1)).isoformat()
+
+    def _row_has_expected_date():
+        rows = context.browser.find_elements(By.CSS_SELECTOR, "#promotions_table tbody tr")
+        for row in rows:
+            if name in row.text and expected_end_date in row.text:
+                return True
+        return False
+
+    found = WebDriverWait(context.browser, context.wait_seconds).until(
+        lambda driver: _row_has_expected_date()
+    )
+    assert found, f"Did not find end date {expected_end_date} for '{name}' in table"
 
 
 ##################################################################

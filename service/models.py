@@ -150,15 +150,15 @@ class Promotion(db.Model):
     def _validate_promotion_type(self, data: Mapping) -> str:
         if "promotion_type" not in data:
             raise DataValidationError("Invalid promotion: missing promotion_type")
-        ptype = data["promotion_type"]
-        if not isinstance(ptype, str):
+        promotion_type = data["promotion_type"]
+        if not isinstance(promotion_type, str):
             raise DataValidationError("Field 'promotion_type' must be a string")
-        if ptype not in self.ALLOWED_PROMOTION_TYPES:
+        if promotion_type not in self.ALLOWED_PROMOTION_TYPES:
             raise DataValidationError(
-                f"Invalid promotion_type '{ptype}'. "
+                f"Invalid promotion_type '{promotion_type}'. "
                 f"Allowed: {sorted(self.ALLOWED_PROMOTION_TYPES)}"
             )
-        return ptype
+        return promotion_type
 
     @staticmethod
     def _validate_value(data: Mapping) -> int:

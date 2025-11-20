@@ -30,6 +30,7 @@ from typing import Any
 from datetime import date, timedelta
 from behave import given, when, then  # pylint: disable=no-name-in-module
 from selenium.webdriver.common.by import By
+from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver.support.ui import Select, WebDriverWait
 from selenium.webdriver.support import expected_conditions
 
@@ -231,9 +232,17 @@ def step_impl(context: Any, name: str) -> None:
     expected_end_date = (date.today() - timedelta(days=1)).isoformat()
 
     def _row_has_expected_date():
-        rows = context.browser.find_elements(By.CSS_SELECTOR, "#promotions_table tbody tr")
+        # Re-query rows each time to avoid stale element references after table refresh
+        try:
+            rows = context.browser.find_elements(By.CSS_SELECTOR, "#promotions_table tbody tr")
+        except StaleElementReferenceException:
+            return False
         for row in rows:
-            if name in row.text and expected_end_date in row.text:
+            try:
+                text = row.text
+            except StaleElementReferenceException:
+                return False
+            if name in text and expected_end_date in text:
                 return True
         return False
 

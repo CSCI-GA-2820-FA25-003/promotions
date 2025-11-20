@@ -218,6 +218,15 @@ class TestPromotionModel(TestCaseBase):
         with self.assertRaises(DataValidationError):
             promo.deserialize(data)
 
+    def test_deserialize_start_after_end(self):
+        """It should fail when start_date is after end_date"""
+        data = PromotionFactory().serialize()
+        data["start_date"] = "2030-12-31"
+        data["end_date"] = "2030-01-01"
+        promo = Promotion()
+        with self.assertRaises(DataValidationError):
+            promo.deserialize(data)
+
     def test_deserialize_name_not_string(self):
         """It should fail to deserialize when name is not a string"""
         data = PromotionFactory().serialize()

@@ -59,6 +59,21 @@ This service provides a robust and consistent API for CRUD operations and queryi
     behave
     ```
 
+## API & Swagger
+
+- **Base path:** All REST endpoints are prefixed with `/api` (e.g., `/api/promotions`).
+- **Swagger UI:** Available at `/apidocs/` when the service is running (e.g., http://localhost:8080/apidocs/).
+- **Common examples:**
+  ```bash
+  # List promotions
+  curl http://localhost:8080/api/promotions
+
+  # Create a promotion
+  curl -X POST http://localhost:8080/api/promotions \
+    -H "Content-Type: application/json" \
+    -d '{"name":"Black Friday","promotion_type":"PERCENT","value":25,"product_id":123,"start_date":"2025-11-01","end_date":"2025-11-30"}'
+  ```
+
 ---
 
 ## Documentation

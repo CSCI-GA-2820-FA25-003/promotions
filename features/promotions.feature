@@ -42,6 +42,15 @@ Feature: Promotions Admin UI
     And I submit the edit form
     Then I should see the promotions table updated with "Flash Sale Updated"
 
+  Scenario: Deactivate a promotion from the UI
+    Given the following promotions
+      | Name        | Promotion Type | Value | Product ID | Start Date | End Date   |
+      | Spring Sale | PERCENT        | 15    | 4001       | 2030-03-01 | 2030-03-31 |
+    When I visit the "Home Page"
+    Then I should see the promotions table updated with "Spring Sale"
+    When I click the deactivate button for "Spring Sale"
+    Then the end date for "Spring Sale" should be yesterday in the promotions table
+
   Scenario: Filter promotions by Active status
     Given the following promotions
       | Name         | Promotion Type | Value | Product ID | Start Date | End Date   |

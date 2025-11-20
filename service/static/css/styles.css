@@ -86,7 +86,8 @@ body {
 
 /* ===== Action Button Styles ===== */
 .edit-btn,
-.delete-btn {
+.delete-btn,
+.deactivate-btn {
   border-radius: 0.25rem;
   padding: 0.5rem;
   width: 40px;
@@ -103,16 +104,26 @@ body {
 }
 
 .edit-btn:hover,
-.delete-btn:hover {
+.delete-btn:hover,
+.deactivate-btn:hover {
   background: #e9ecef;
   border-color: #adb5bd;
   color: #495057;
 }
 
 .edit-btn svg,
-.delete-btn svg {
+.delete-btn svg,
+.deactivate-btn svg {
   width: 20px;
   height: 20px;
+}
+
+.deactivate-btn {
+  width: auto;
+  min-width: 88px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.95rem;
+  font-weight: 600;
 }
 
 /* ===== Modal Styles ===== */

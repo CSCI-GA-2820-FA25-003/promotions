@@ -38,7 +38,7 @@ spec:
 
       containers:
         - name: promotions
-          image: IMAGE_PLACEHOLDER
+          image: cluster-registry:5000/promotions:1.0
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

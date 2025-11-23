@@ -59,6 +59,31 @@ This service provides a robust and consistent API for CRUD operations and queryi
     behave
     ```
 
+## Kubernetes Deployment
+
+Deploy to a local K3D/K3S cluster:
+
+```bash
+# Create K3S cluster with registry
+make cluster
+
+# Build Docker image
+make build
+
+# Push image to registry
+make push
+
+# Deploy to Kubernetes
+make deploy
+```
+
+Verify deployment:
+```bash
+curl -H "Host: promotions.local" http://localhost:8080/health
+```
+
+For detailed instructions, see [Deployment Guide](docs/DEPLOYMENT.md).
+
 ## API & Swagger
 
 - **Base path:** All REST endpoints are prefixed with `/api` (e.g., `/api/promotions`).

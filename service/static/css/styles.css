@@ -456,3 +456,119 @@ body {
   border: 1px solid #e9ecef;
   color: #32325d;
 }
+
+/* ===== View Switcher ===== */
+.view-switcher .nav-link {
+  font-size: 1.2rem; /* Increased size */
+  line-height: 1;
+}
+
+/* ===== Card View / Gallery Styles ===== */
+#promotions_cards_view {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.promo-card {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.04);
+  overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s;
+  display: flex;
+  flex-direction: column;
+}
+
+.promo-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 12px rgba(0,0,0,0.08);
+}
+
+.promo-card-img-container {
+    width: 100%;
+    height: 160px; /* A bit shorter */
+    overflow: hidden;
+}
+
+.promo-card-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background-color: #f8f9fa;
+  transition: transform 0.3s ease;
+}
+
+.promo-card:hover .promo-card-img {
+    transform: scale(1.05);
+}
+
+.promo-card-content {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  position: relative; /* For actions */
+}
+
+.promo-card-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.promo-card-tags {
+  margin-bottom: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.promo-card-date {
+  margin-top: auto; /* Pushes to bottom */
+  font-size: 0.8rem;
+  color: #6c757d;
+}
+
+.promo-card-actions {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+}
+
+.promo-card:hover .promo-card-actions {
+    opacity: 1;
+}
+
+/* Adjust action buttons for card view */
+.promo-card .edit-btn,
+.promo-card .delete-btn,
+.promo-card .deactivate-btn {
+    width: 32px;
+    height: 32px;
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(0,0,0,0.05);
+}
+.promo-card .edit-btn:hover,
+.promo-card .delete-btn:hover,
+.promo-card .deactivate-btn:hover {
+    background: rgba(255, 255, 255, 1);
+    transform: scale(1.1);
+}
+
+/* Empty state for card view */
+.empty-card-view {
+    grid-column: 1 / -1; /* Span full width */
+    text-align: center;
+    padding: 3rem;
+    background: #fff;
+    border-radius: 0.75rem;
+    border: 1px solid #e9ecef;
+}

@@ -113,32 +113,44 @@
         <button id="btnClearFilters" class="btn btn-outline-secondary btn-sm">Clear</button>
       </div>
 
-      <!-- Results Count -->
-      <div class="results-count mb-2">
-        <span id="promotionsCount">0 promotions</span>
+      <!-- Results Count and View Switcher -->
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <div class="results-count">
+          <span id="promotionsCount">0 promotions</span>
+        </div>
+        <div class="view-switcher nav nav-pills">
+          <button class="nav-link active p-1" id="view-table-btn" data-view="table" title="Table View"><i class="fas fa-list"></i></button>
+          <button class="nav-link p-1" id="view-card-btn" data-view="card" title="Card View"><i class="fas fa-th-large"></i></button>
+        </div>
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-body p-0">
-        <div class="table-responsive">
-          <table id="promotions_table" class="table mb-0">
-            <thead>
-              <tr>
-                <th class="text-center">ID</th>
-                <th>Name</th>
-                <th>Type</th>
-                <th class="text-center">Value</th>
-                <th class="text-center">Product ID</th>
-                <th class="text-center">Status</th>
-                <th class="text-center">Date Range</th>
-                <th class="text-center" style="width: 160px;"></th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
+    <div id="promotions_table_view">
+      <div class="card">
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table id="promotions_table" class="table mb-0">
+              <thead>
+                <tr>
+                  <th class="text-center">ID</th>
+                  <th>Name</th>
+                  <th>Type</th>
+                  <th class="text-center">Value</th>
+                  <th class="text-center">Product ID</th>
+                  <th class="text-center">Status</th>
+                  <th class="text-center">Date Range</th>
+                  <th class="text-center" style="width: 160px;"></th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
         </div>
       </div>
+    </div>
+
+    <div id="promotions_cards_view" class="d-none">
+      <!-- Cards will be rendered here by JavaScript -->
     </div>
   </div>
 

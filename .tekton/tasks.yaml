@@ -195,6 +195,7 @@ spec:
           echo "OC APPLY..."
           oc apply -f $(inputs.params.manifest-dir)/deployment.yaml
           oc apply -f $(inputs.params.manifest-dir)/service.yaml
+          oc apply -f $(inputs.params.manifest-dir)/route.yaml 2>/dev/null || echo "No route.yaml found"
 
           echo "************************************************************"
           sleep 3

@@ -38,9 +38,11 @@ k8s/
 ├── deployment.yaml        # Application deployment
 ├── service.yaml           # ClusterIP service
 ├── route.yaml             # OpenShift route (external access)
-├── ingress.yaml           # Kubernetes ingress (optional)
-├── postgres/              # PostgreSQL StatefulSet and services
-└── secrets/               # Database credentials
+├── ingress.yaml           # Kubernetes ingress (local K3d)
+└── postgres/
+    ├── secret.yaml        # Database credentials
+    ├── service.yaml       # PostgreSQL service
+    └── statefulset.yaml   # PostgreSQL StatefulSet
 ```
 
 ## Quick Setup
@@ -48,8 +50,7 @@ k8s/
 ### 1. Deploy K8s Resources (First Time)
 
 ```bash
-# Deploy secrets and database
-oc apply -f k8s/secrets/
+# Deploy database and secrets
 oc apply -f k8s/postgres/
 
 # Deploy service and route
@@ -110,6 +111,21 @@ oc get pods
 
 # Check route
 oc get route
+```
+
+## Local Development (K3d)
+
+```bash
+# Create local cluster
+make cluster
+
+# Build and deploy
+make build
+make push
+make deploy
+
+# Cleanup
+make cluster-rm
 ```
 
 ## Troubleshooting

@@ -119,9 +119,6 @@ For detailed instructions, see [Deployment Guide](docs/DEPLOYMENT.md).
 ## Project Structure
 
 ```
-## 📂 Project Structure
-
-```text
 .
 ├── docs/               # Project documentation (Architecture, API, Deployment, etc.)
 ├── features/           # BDD scenarios and steps (Behave)

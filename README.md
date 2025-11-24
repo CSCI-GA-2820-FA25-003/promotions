@@ -9,6 +9,10 @@ A production-style REST API for managing promotions, built with Python and Flask
 
 This service provides a robust and consistent API for CRUD operations and querying of promotion records. It emphasizes clear and explicit API design, moving away from ambiguous legacy concepts.
 
+## UI Screenshots
+![Demo Animation](images/demo.gif)
+
+
 ## Key Features
 
 *   **Predictable API**: Easy to integrate with consistent behavior and clear filtering.
@@ -21,7 +25,7 @@ This service provides a robust and consistent API for CRUD operations and queryi
 *   **Backend**: Python, Flask, Flask-SQLAlchemy
 *   **Database**: PostgreSQL
 *   **Containerization**: Docker
-*   **CI/CD**: GitHub Actions
+*   **CI/CD**: GitHub Actions, Tekton Pipelines (OpenShift)
 *   **Testing**: PyTest, Behave, Codecov
 
 ## Quick Start
@@ -115,23 +119,25 @@ For detailed instructions, see [Deployment Guide](docs/DEPLOYMENT.md).
 ## Project Structure
 
 ```
-service/
-  __init__.py
-  routes.py          # REST endpoints and filter priority
-  models.py          # Promotion model + unified query contract
-  common/
-    status.py        # HTTP status codes
-    error_handlers.py
-    log_handlers.py
-    cli_commands.py
-tests/
-  test_models.py     # Model behavior, queries, validation, exceptions
-  test_routes.py     # Routes, filters, errors, 500 simulation
-  test_cli_commands.py
-wsgi.py              # App entry (Flask)
-Makefile
-requirements.txt
-README.md            # This file
+## 📂 Project Structure
+
+```text
+.
+├── docs/               # Project documentation (Architecture, API, Deployment, etc.)
+├── features/           # BDD scenarios and steps (Behave)
+├── k8s/                # Kubernetes manifests (Deployment, Service, Ingress, DB)
+├── scripts/            # DevOps helper scripts
+├── service/            # Application source code
+│   ├── common/         # Shared utilities (logs, error handlers)
+│   ├── models.py       # Database models
+│   ├── routes.py       # API endpoints
+│   └── static/         # Frontend assets (HTML/CSS/JS)
+├── tests/              # Unit and integration tests (Pytest)
+├── .tekton/            # Tekton CI/CD pipeline definitions (hidden dir)
+├── check_syntax.py     # Syntax checker script
+├── Dockerfile          # Container definition
+├── Makefile            # Command automation
+└── wsgi.py             # WSGI entry point
 ```
 
 ## License

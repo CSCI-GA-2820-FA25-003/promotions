@@ -227,12 +227,17 @@ def step_impl(context: Any, name: str) -> None:
 
 
 @then('the end date for "{name}" should be yesterday in the promotions table')
-def step_impl(context: Any, name: str) -> None:
+def step_impl(context, name):
     """Verify that the promotion shows yesterday as the end date"""
-    expected_end_date = (date.today() - timedelta(days=1)).isoformat()
+    yesterday = date.today() - timedelta(days=1)
+    
+    # dayjs formats date as 'MMM D, YYYY', e.g. 'Nov 8, 2025'
+    # We will check for the constituent parts to be safe across platforms
+    expected_month = yesterday.strftime('%b')
+    expected_day_and_comma = f" {yesterday.day},"
+    expected_year = str(yesterday.year)
 
     def _row_has_expected_date():
-        # Re-query rows each time to avoid stale element references after table refresh
         try:
             rows = context.browser.find_elements(By.CSS_SELECTOR, "#promotions_table tbody tr")
         except StaleElementReferenceException:
@@ -242,14 +247,22 @@ def step_impl(context: Any, name: str) -> None:
                 text = row.text
             except StaleElementReferenceException:
                 return False
-            if name in text and expected_end_date in text:
+            
+            # Check for the promotion name, the "Ended" status, and the correct date parts
+            if (
+                name in text and 
+                "Ended" in text and
+                expected_month in text and
+                expected_day_and_comma in text and
+                expected_year in text
+            ):
                 return True
         return False
 
     found = WebDriverWait(context.browser, context.wait_seconds).until(
         lambda driver: _row_has_expected_date()
     )
-    assert found, f"Did not find end date {expected_end_date} for '{name}' in table"
+    assert found, f"Did not find end date updated to yesterday for '{name}' in table"
 
 
 ##################################################################

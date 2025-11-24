@@ -45,10 +45,10 @@ dayjs.extend(window.dayjs_plugin_relativeTime);
     var startFormatted = start.format('MMM D');
     var endFormatted = end.format('MMM D, YYYY');
 
-    if (now.isBefore(start)) {
-      return 'Starts ' + start.fromNow() + '<br><small class="text-muted">' + startFormatted + ' &rarr; ' + endFormatted + '</small>';
-    } else if (now.isAfter(end)) {
+    if (now.isAfter(end)) {
       return 'Ended ' + end.fromNow() + '<br><small class="text-muted">' + startFormatted + ' &rarr; ' + endFormatted + '</small>';
+    } else if (now.isBefore(start)) {
+      return 'Starts ' + start.fromNow() + '<br><small class="text-muted">' + startFormatted + ' &rarr; ' + endFormatted + '</small>';
     } else {
       return 'Ends ' + end.fromNow() + '<br><small class="text-muted">' + startFormatted + ' &rarr; ' + endFormatted + '</small>';
     }

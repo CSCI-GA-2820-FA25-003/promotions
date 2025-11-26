@@ -61,6 +61,19 @@ spec:
     ######################################################
     # lint task (runs parallel with test)
     ######################################################
+    - name: lint
+      taskRef:
+        name: pylint
+      runAfter:
+        - git-clone
+      params:
+        - name: path
+          value: service
+        - name: args
+          value: ["--max-line-length=127"]
+      workspaces:
+        - name: source
+          workspace: pipeline-workspace
 
     ######################################################
     # test task (runs parallel with lint)

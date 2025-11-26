@@ -1,0 +1,49 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: cd-pipeline
+spec:
+  params:
+    - name: GIT_REPO
+      type: string
+      description: The URL to the git repo
+    - name: GIT_REF
+      type: string
+      description: The reference (branch or ref)
+      default: master
+    - name: IMAGE_NAME
+      type: string
+      description: The name of the image to build
+      default: promotions
+    - name: IMAGE_TAG
+      type: string
+      description: The tag for the image
+      default: latest
+
+  workspaces:
+    - name: pipeline-workspace
+
+  tasks:
+    ######################################################
+    # git-clone task
+    ######################################################
+
+    ######################################################
+    # lint task (runs parallel with test)
+    ######################################################
+
+    ######################################################
+    # test task (runs parallel with lint)
+    ######################################################
+
+    ######################################################
+    # build task
+    ######################################################
+
+    ######################################################
+    # deploy task
+    ######################################################
+
+    ######################################################
+    # behave task
+    ######################################################

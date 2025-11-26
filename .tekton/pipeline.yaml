@@ -27,6 +27,36 @@ spec:
     ######################################################
     # git-clone task
     ######################################################
+    - name: git-clone
+      taskRef:
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: git-clone
+          - name: namespace
+            value: openshift-pipelines
+      params:
+        - name: URL
+          value: $(params.GIT_REPO)
+        - name: REVISION
+          value: $(params.GIT_REF)
+        - name: DELETE_EXISTING
+          value: "true"
+        - name: VERBOSE
+          value: "false"
+        - name: SSL_VERIFY
+          value: "true"
+        - name: DEPTH
+          value: "1"
+        - name: SUBDIRECTORY
+          value: ""
+        - name: USER_HOME
+          value: /home/git
+      workspaces:
+        - name: output
+          workspace: pipeline-workspace
 
     ######################################################
     # lint task (runs parallel with test)

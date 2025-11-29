@@ -82,7 +82,7 @@ Feature: Promotions Admin UI
     And I search for "Summer Sale"
     Then I should see the promotions table updated with "Summer Sale"
     And I should not see "Winter Sale" in the promotions table
-    And the URL should contain "name=Summer%20Sale"
+    And the URL should contain "name=Summer+Sale"
 
   Scenario: Filter promotions by Type
     Given the following promotions

@@ -45,7 +45,7 @@ class DatabaseError(Exception):
     """Used for database operation failures (commit/connection/constraint errors)."""
 
 
-class Promotion(db.Model):
+class Promotion(db.Model):  # pylint: disable=too-many-instance-attributes
     """
     Class that represents a Promotion
     """
@@ -58,6 +58,7 @@ class Promotion(db.Model):
     promotion_type = db.Column(db.String(63), nullable=False)
     value = db.Column(db.Integer, nullable=False)
     product_id = db.Column(db.Integer, nullable=False)
+    img_url = db.Column(db.String(255), nullable=True)
     start_date = db.Column(db.Date, nullable=False)
     end_date = db.Column(db.Date, nullable=False)
     # Auditing fields
@@ -127,6 +128,7 @@ class Promotion(db.Model):
             "promotion_type": self.promotion_type,
             "value": self.value,
             "product_id": self.product_id,
+            "img_url": self.img_url,
             "start_date": self.start_date.isoformat() if self.start_date else None,
             "end_date": self.end_date.isoformat() if self.end_date else None,
         }
@@ -183,6 +185,17 @@ class Promotion(db.Model):
         return pid
 
     @staticmethod
+    def _validate_img_url(data: Mapping) -> Optional[str]:
+        if "img_url" not in data:
+            return None
+        img_url = data["img_url"]
+        if img_url is None:
+            return None
+        if not isinstance(img_url, str):
+            raise DataValidationError("Field 'img_url' must be a string")
+        return img_url
+
+    @staticmethod
     def _require_iso_date(data: Mapping, key: str) -> date:
         if key not in data:
             raise DataValidationError(f"Invalid promotion: missing {key}")
@@ -204,6 +217,7 @@ class Promotion(db.Model):
         self.promotion_type = self._validate_promotion_type(data)
         self.value = self._validate_value(data)
         self.product_id = self._validate_product_id(data)
+        self.img_url = self._validate_img_url(data)
         self.start_date = self._require_iso_date(data, "start_date")
         self.end_date = self._require_iso_date(data, "end_date")
         if self.start_date > self.end_date:

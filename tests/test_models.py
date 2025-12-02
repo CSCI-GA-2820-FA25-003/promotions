@@ -111,7 +111,7 @@ class TestPromotionModel(TestCaseBase):
 
     def test_serialize_a_promotion(self):
         """It should serialize a Promotion"""
-        promotion = PromotionFactory()
+        promotion = PromotionFactory(img_url="http://example.com/image.jpg")
         data = promotion.serialize()
         self.assertIsNotNone(data)
         self.assertIn("id", data)
@@ -124,6 +124,8 @@ class TestPromotionModel(TestCaseBase):
         self.assertEqual(data["value"], promotion.value)
         self.assertIn("product_id", data)
         self.assertEqual(data["product_id"], promotion.product_id)
+        self.assertIn("img_url", data)
+        self.assertEqual(data["img_url"], "http://example.com/image.jpg")
         self.assertIn("start_date", data)
         self.assertEqual(date.fromisoformat(data["start_date"]), promotion.start_date)
         self.assertIn("end_date", data)
@@ -131,7 +133,7 @@ class TestPromotionModel(TestCaseBase):
 
     def test_deserialize_a_promotion(self):
         """It should de-serialize a Promotion"""
-        data = PromotionFactory().serialize()
+        data = PromotionFactory(img_url="http://example.com/image.jpg").serialize()
         promotion = Promotion()
         promotion.deserialize(data)
         self.assertIsNotNone(promotion)
@@ -140,8 +142,18 @@ class TestPromotionModel(TestCaseBase):
         self.assertEqual(promotion.promotion_type, data["promotion_type"])
         self.assertEqual(promotion.value, data["value"])
         self.assertEqual(promotion.product_id, data["product_id"])
+        self.assertEqual(promotion.img_url, "http://example.com/image.jpg")
         self.assertEqual(promotion.start_date, date.fromisoformat(data["start_date"]))
         self.assertEqual(promotion.end_date, date.fromisoformat(data["end_date"]))
+
+    def test_img_url_persists_in_database(self):
+        """It should store and retrieve img_url"""
+        promotion = PromotionFactory(img_url="http://example.com/image.jpg")
+        promotion.create()
+
+        fetched = Promotion.find(promotion.id)
+        self.assertIsNotNone(fetched)
+        self.assertEqual(fetched.img_url, "http://example.com/image.jpg")
 
     def test_deserialize_missing_data(self):
         """It should not deserialize a Promotion with missing data"""
@@ -187,6 +199,29 @@ class TestPromotionModel(TestCaseBase):
         promo = Promotion()
         with self.assertRaises(DataValidationError):
             promo.deserialize(p)
+
+    def test_deserialize_missing_value(self):
+        """value is required"""
+        data = PromotionFactory().serialize()
+        data.pop("value", None)
+        promo = Promotion()
+        with self.assertRaises(DataValidationError):
+            promo.deserialize(data)
+
+    def test_deserialize_img_url_none(self):
+        """img_url may be null"""
+        data = PromotionFactory(img_url=None).serialize()
+        promo = Promotion()
+        promo.deserialize(data)
+        self.assertIsNone(promo.img_url)
+
+    def test_deserialize_bad_img_url_type(self):
+        """img_url must be string when provided"""
+        data = PromotionFactory().serialize()
+        data["img_url"] = 12345
+        promo = Promotion()
+        with self.assertRaises(DataValidationError):
+            promo.deserialize(data)
 
     def test_deserialize_attribute_error(self):
         """It should not deserialize with attribute error"""

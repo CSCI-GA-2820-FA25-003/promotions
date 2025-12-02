@@ -91,6 +91,10 @@ create_promotion_model = api.model(
         "product_id": fields.Integer(required=True, description="The product ID this promotion applies to"),
         "start_date": fields.Date(required=True, description="The start date of the promotion"),
         "end_date": fields.Date(required=True, description="The end date of the promotion"),
+        "img_url": fields.String(
+            required=False,
+            description="Optional image URL for displaying the promotion",
+        ),
     },
 )
 

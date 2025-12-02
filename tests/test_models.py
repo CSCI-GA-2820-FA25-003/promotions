@@ -200,6 +200,29 @@ class TestPromotionModel(TestCaseBase):
         with self.assertRaises(DataValidationError):
             promo.deserialize(p)
 
+    def test_deserialize_missing_value(self):
+        """value is required"""
+        data = PromotionFactory().serialize()
+        data.pop("value", None)
+        promo = Promotion()
+        with self.assertRaises(DataValidationError):
+            promo.deserialize(data)
+
+    def test_deserialize_img_url_none(self):
+        """img_url may be null"""
+        data = PromotionFactory(img_url=None).serialize()
+        promo = Promotion()
+        promo.deserialize(data)
+        self.assertIsNone(promo.img_url)
+
+    def test_deserialize_bad_img_url_type(self):
+        """img_url must be string when provided"""
+        data = PromotionFactory().serialize()
+        data["img_url"] = 12345
+        promo = Promotion()
+        with self.assertRaises(DataValidationError):
+            promo.deserialize(data)
+
     def test_deserialize_attribute_error(self):
         """It should not deserialize with attribute error"""
         promotion = Promotion()

@@ -5,6 +5,7 @@ IMAGE_TAG ?= 1.0
 IMAGE ?= $(REGISTRY)/$(IMAGE_NAME):$(IMAGE_TAG)
 PLATFORM ?= "linux/amd64,linux/arm64"
 CLUSTER ?= nyu-devops
+DATABASE_URI ?= sqlite:///:memory:
 LOCAL_IMAGE       ?= $(IMAGE_NAME):$(IMAGE_TAG)
 REGISTRY_HOST     ?= cluster-registry
 REGISTRY_PORT     ?= 5000
@@ -42,7 +43,7 @@ lint: ## Run the linter
 .PHONY: test
 test: ## Run the unit tests
 	$(info Running tests...)
-	export RETRY_COUNT=1; pytest --pspec --cov=service --cov-fail-under=95 --disable-warnings
+	export DATABASE_URI=$(DATABASE_URI); export RETRY_COUNT=1; pytest --pspec --cov=service --cov-fail-under=95 --disable-warnings
 
 .PHONY: run
 run: ## Run the service

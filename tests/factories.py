@@ -20,5 +20,6 @@ class PromotionFactory(factory.Factory):
     promotion_type = factory.Faker("random_element", elements=("PERCENT", "DISCOUNT", "BOGO"))
     value = factory.Faker("random_int", min=1, max=99)
     product_id = factory.Faker("random_int", min=1, max=1000)
+    img_url = factory.Faker("image_url")
     start_date = factory.LazyFunction(date.today)
     end_date = factory.LazyFunction(lambda: date.today() + timedelta(days=30))

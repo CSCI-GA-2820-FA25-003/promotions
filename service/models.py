@@ -45,7 +45,7 @@ class DatabaseError(Exception):
     """Used for database operation failures (commit/connection/constraint errors)."""
 
 
-class Promotion(db.Model):
+class Promotion(db.Model):  # pylint: disable=too-many-instance-attributes
     """
     Class that represents a Promotion
     """

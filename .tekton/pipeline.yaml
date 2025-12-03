@@ -78,7 +78,19 @@ spec:
     ######################################################
     # test task (runs parallel with lint)
     ######################################################
-
+    - name: test
+            taskRef:
+              name: pytest
+            runAfter:
+              - git-clone
+            params:
+              - name: path
+                value: service
+              - name: args
+                value: ["--max-line-length=127"]
+            workspaces:
+              - name: source
+                workspace: pipeline-workspace
     ######################################################
     # build task
     ######################################################

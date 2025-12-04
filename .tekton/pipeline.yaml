@@ -95,17 +95,7 @@ spec:
     # build task
     ######################################################
     - name: build
-      taskRef:
-        name: pybuild-env
-      runAfter:
-        - test
-      params:
-        - name: path
-          value: service
-        - name: args
-          value: ["--max-line-length=127"]
-      workspaces:
-        - name: source
+
   - name: build
     taskRef:
       name: buildah

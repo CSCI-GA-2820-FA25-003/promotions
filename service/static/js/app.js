@@ -105,11 +105,13 @@ function initCreateModal() {
     this.classList.add("was-validated");
     if (!this.checkValidity()) return;
 
+    const imgUrlValue = ($id("inputImgUrl").value || "").trim();
     const payload = {
       name: ($id("inputName").value || "").trim(),
       promotion_type: ($id("inputType").value || "").trim(),
       value: Number($id("inputValue").value),
       product_id: parseInt($id("inputProductId").value, 10) || null,
+      img_url: imgUrlValue || null,
       start_date: normalizeDateInput($id("inputStart").value),
       end_date: normalizeDateInput($id("inputEnd").value),
     };
@@ -207,6 +209,7 @@ function initEditModal() {
         $id("editType").value = promotion.promotion_type || "";
         $id("editValue").value = promotion.value ?? "";
         $id("editProductId").value = promotion.product_id ?? "";
+        $id("editImgUrl").value = promotion.img_url || "";
         $id("editStart").value = formatDateShort(promotion.start_date) || "";
         $id("editEnd").value = formatDateShort(promotion.end_date) || "";
         editModal.show();
@@ -221,11 +224,13 @@ function initEditModal() {
     this.classList.add("was-validated");
     if (!this.checkValidity() || !currentEditId) return;
 
+    const imgUrlValue = ($id("editImgUrl").value || "").trim();
     const payload = {
       name: ($id("editName").value || "").trim(),
       promotion_type: ($id("editType").value || "").trim(),
       value: Number($id("editValue").value),
       product_id: parseInt($id("editProductId").value, 10) || null,
+      img_url: imgUrlValue || null,
       start_date: normalizeDateInput($id("editStart").value),
       end_date: normalizeDateInput($id("editEnd").value),
     };

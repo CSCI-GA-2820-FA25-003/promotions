@@ -241,54 +241,6 @@ spec:
 apiVersion: tekton.dev/v1beta1
 kind: Task
 metadata:
-  name: bdd-test
-  annotations:
-    tekton.dev/categories: Testing
-    tekton.dev/displayName: "behave BDD tests"
-    tekton.dev/pipelines.minVersion: "0.17.0"
-    tekton.dev/tags: python, behave, ui, api
-spec:
-  description: >-
-    Runs behave (BDD) tests against a deployed environment. Requires BASE_URL to point to the live route.
-  params:
-    - name: base-url
-      description: The URL of the deployed service (e.g., https://promotions.example.com)
-      type: string
-    - name: image
-      description: The container image with python + browsers
-      default: quay.io/rofrano/python-selenium:3.11
-      type: string
-  steps:
-    - name: behave
-      image: $(params.image)
-      workingDir: /workspace/source
-      env:
-        - name: BASE_URL
-          value: $(params.base-url)
-        - name: USE_WDM
-          value: "1"
-      script: |
-        #!/bin/bash
-        set -euo pipefail
-        export PATH=$PATH:$HOME/.local/bin
-
-        echo "***** Installing dependencies *****"
-        if [ -e "Pipfile" ]; then
-          python -m pip install --upgrade pip pipenv
-          pipenv install --system --dev
-        elif [ -e "requirements.txt" ]; then
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
-        fi
-
-        echo "BASE_URL=${BASE_URL}"
-        echo "***** Running behave *****"
-        behave
-
----
-apiVersion: tekton.dev/v1beta1
-kind: Task
-metadata:
   name: behave
   labels:
     app.kubernetes.io/version: "0.1"

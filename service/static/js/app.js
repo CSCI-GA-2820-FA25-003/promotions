@@ -168,25 +168,35 @@ function initDeleteModal() {
   });
 }
 
-function initDeactivateAction() {
-  document.addEventListener("click", async function (e) {
-    const btn = e.target.closest(".deactivate-btn");
-    if (!btn) return;
+function initDeactivateModal() {
+  const deactivateModalEl = $id("deactivateModal");
+  const deactivateModal = bootstrap.Modal.getOrCreateInstance(deactivateModalEl);
+  let currentDeactivateId = null;
 
-    const id = btn.dataset.id;
-    const name = btn.dataset.name || "this promotion";
-    if (!window.confirm('Deactivate "' + name + '"?')) return;
+  document.addEventListener("click", function (e) {
+    const deactivateBtn = e.target.closest(".deactivate-btn");
+    if (deactivateBtn) {
+      currentDeactivateId = deactivateBtn.dataset.id;
+      $id("deactivatePromotionId").textContent = currentDeactivateId;
+      $id("deactivatePromotionName").textContent = deactivateBtn.dataset.name;
+      deactivateModal.show();
+    }
+  });
 
-    btn.disabled = true;
+  $id("confirmDeactivate")?.addEventListener("click", async function () {
+    if (!currentDeactivateId) return;
+    this.disabled = true;
     try {
-      await deactivatePromotion(id);
+      await deactivatePromotion(currentDeactivateId);
+      deactivateModal.hide();
       showSuccessToast("Promotion deactivated");
       loadAndRender();
     } catch (err) {
       console.error("Deactivate failed:", err);
       alert("Failed to deactivate promotion: " + err.message);
     } finally {
-      btn.disabled = false;
+      this.disabled = false;
+      currentDeactivateId = null;
     }
   });
 }
@@ -352,7 +362,7 @@ document.addEventListener("DOMContentLoaded", function () {
   initViewSwitcher();
   initCreateModal();
   initDeleteModal();
-  initDeactivateAction();
+  initDeactivateModal();
   initEditModal();
   initFilters();
 });

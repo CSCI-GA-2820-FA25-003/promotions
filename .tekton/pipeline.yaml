@@ -79,36 +79,40 @@ spec:
     # test task (runs parallel with lint)
     ######################################################
     - name: test
-            taskRef:
-              name: pytest-env
-            runAfter:
-              - git-clone
-            params:
-              - name: path
-                value: service
-              - name: args
-                value: ["--max-line-length=127"]
-            workspaces:
-              - name: source
-                workspace: pipeline-workspace
+      taskRef:
+        name: pytest-env
+      runAfter:
+        - git-clone
+      params:
+        - name: path
+          value: service
+        - name: args
+          value: ["--max-line-length=127"]
+      workspaces:
+        - name: source
+          workspace: pipeline-workspace
     ######################################################
     # build task
     ######################################################
     - name: build
-
-  - name: build
-    taskRef:
-      name: buildah
-      kind: Task
-    runAfter:
-      - lint
-      - testing
-    params:
-      - name: IMAGE
-        value: image-registry.openshift-image-registry.svc:5000/$(context.pipelineRun.namespace)/$(params.IMAGE_NAME):$(params.IMAGE_TAG)
-    workspaces:
-      - name: source
-        workspace: pipeline-workspace
+      runAfter:
+        - lint
+        - test
+      taskRef:
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: buildah
+          - name: namespace
+            value: openshift-pipelines
+      params:
+        - name: IMAGE
+          value: image-registry.openshift-image-registry.svc:5000/$(context.pipelineRun.namespace)/$(params.IMAGE_NAME):$(params.IMAGE_TAG)
+      workspaces:
+        - name: source
+          workspace: pipeline-workspace
     ######################################################
     # deploy task
     ######################################################
@@ -116,4 +120,3 @@ spec:
     ######################################################
     # behave task
     ######################################################
-

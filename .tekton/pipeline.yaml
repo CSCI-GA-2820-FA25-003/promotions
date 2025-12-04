@@ -94,7 +94,19 @@ spec:
           value: ["--max-line-length=127"]
       workspaces:
         - name: source
-          workspace: pipeline-workspace
+  - name: build
+    taskRef:
+      name: buildah
+      kind: Task
+    runAfter:
+      - lint
+      - testing
+    params:
+      - name: IMAGE
+        value: image-registry.openshift-image-registry.svc:5000/$(context.pipelineRun.namespace)/$(params.IMAGE_NAME):$(params.IMAGE_TAG)
+    workspaces:
+      - name: source
+        workspace: pipeline-workspace
     ######################################################
     # deploy task
     ######################################################

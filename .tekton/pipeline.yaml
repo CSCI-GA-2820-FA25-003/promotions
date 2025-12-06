@@ -132,3 +132,14 @@ spec:
     ######################################################
     # behave task
     ######################################################
+    - name: behave
+      taskRef:
+        name: behave
+      runAfter:
+        - deploy
+      params:
+        - name: base-url
+          value: "http://promotions-service.$(context.pipelineRun.namespace).svc.cluster.local"
+      workspaces:
+        - name: source
+          workspace: pipeline-workspace

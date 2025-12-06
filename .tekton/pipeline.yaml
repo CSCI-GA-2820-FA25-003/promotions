@@ -84,10 +84,10 @@ spec:
       runAfter:
         - git-clone
       params:
-        - name: path
-          value: service
-        - name: args
-          value: ["--max-line-length=127"]
+        - name: pytest-args
+          value:
+            - "--cov=service"
+            - "--cov-fail-under=95"
       workspaces:
         - name: source
           workspace: pipeline-workspace
@@ -116,7 +116,30 @@ spec:
     ######################################################
     # deploy task
     ######################################################
-
+    - name: deploy
+      taskRef:
+        name: deploy-image
+      runAfter:
+        - build
+      params:
+        - name: image-name
+          value: "image-registry.openshift-image-registry.svc:5000/$(context.pipelineRun.namespace)/$(params.IMAGE_NAME):$(params.IMAGE_TAG)"
+        - name: manifest-dir
+          value: k8s
+      workspaces:
+        - name: source
+          workspace: pipeline-workspace
     ######################################################
     # behave task
     ######################################################
+    - name: behave
+      taskRef:
+        name: behave
+      runAfter:
+        - deploy
+      params:
+        - name: base-url
+          value: "http://promotions-service.$(context.pipelineRun.namespace).svc.cluster.local"
+      workspaces:
+        - name: source
+          workspace: pipeline-workspace

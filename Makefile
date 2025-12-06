@@ -5,6 +5,7 @@ IMAGE_TAG ?= 1.0
 IMAGE ?= $(REGISTRY)/$(IMAGE_NAME):$(IMAGE_TAG)
 PLATFORM ?= "linux/amd64,linux/arm64"
 CLUSTER ?= nyu-devops
+DATABASE_URI ?= sqlite:///:memory:
 LOCAL_IMAGE       ?= $(IMAGE_NAME):$(IMAGE_TAG)
 REGISTRY_HOST     ?= cluster-registry
 REGISTRY_PORT     ?= 5000
@@ -42,7 +43,7 @@ lint: ## Run the linter
 .PHONY: test
 test: ## Run the unit tests
 	$(info Running tests...)
-	export RETRY_COUNT=1; pytest --pspec --cov=service --cov-fail-under=95 --disable-warnings
+	export DATABASE_URI=$(DATABASE_URI); export RETRY_COUNT=1; pytest --pspec --cov=service --cov-fail-under=95 --disable-warnings
 
 .PHONY: run
 run: ## Run the service
@@ -69,7 +70,10 @@ cluster-rm: ## Remove a K3D Kubernetes cluster
 .PHONY: deploy
 deploy: ## Deploy the service on local Kubernetes
 	$(info Deploying service locally...)
-	kubectl apply -R -f k8s/
+	kubectl apply -f k8s/postgres/
+	kubectl apply -f k8s/deployment.yaml
+	kubectl apply -f k8s/service.yaml
+	kubectl apply -f k8s/ingress.yaml
 
 ############################################################
 # COMMANDS FOR BUILDING THE IMAGE
@@ -121,19 +125,43 @@ remove:	## Stop and remove the buildx builder
 	docker buildx stop
 	docker buildx rm
 
+# R4 BDD
+PORT ?= 8080
+BASE_URL ?= http://localhost:$(PORT)
+LOCAL_PORT ?= 8088
+.PHONY: bdd-setup serve stop bdd pf
+bdd-setup: ## Install Chromium & chromedriver for headless BDD
+	@echo "Installing Chromium + chromedriver..."
+	sudo apt-get update
+	sudo apt-get install -y chromium chromium-driver fonts-liberation
+	-which chromium || which chromium-browser || true
+	-which chromedriver || true
+serve: ## Run the app locally on PORT (default 8080)
+	@echo "Starting app on http://localhost:$(PORT)"
+	pipenv run gunicorn --bind 0.0.0.0:$(PORT) wsgi:app
+stop: ## Stop any process listening on PORT (default 8080)
+	@echo "Stopping process on :$(PORT) (if any) ..."
+	-ss -ltnp | awk '/:$(PORT)\b/{print $$7}' | cut -d',' -f1 | sed 's/[^0-9]//g' | xargs -r kill
+bdd: ## Run behave against BASE_URL (default http://localhost:$(PORT))
+	@echo "Running BDD against $(BASE_URL)"
+	BASE_URL=$(BASE_URL) behave
+pf: ## kubectl port-forward svc/promotions-service -> localhost:LOCAL_PORT
+	@echo "Port-forwarding svc/promotions-service 80 -> localhost:$(LOCAL_PORT)"
+	kubectl port-forward svc/promotions-service $(LOCAL_PORT):80
+
 .PHONY: verify
 verify: ## Smoke check the Kubernetes deployment (pods, service, ingress, HTTP)
 	@bash -eu -o pipefail -c '\
 	: "$${KUBECONFIG:=/app/kubeconfig}"; \
 	NS="$${NS:-default}"; \
 	LABEL_SELECTOR="$${LABEL_SELECTOR:-app=promotions}"; \
-	SERVICE="$${SERVICE:-promotions-service}"; \
-	INGRESS="$${INGRESS:-promotions-ingress}"; \
-	VERIFY_PORT="$${VERIFY_PORT:-8080}"; \
-	HEALTH_PATH="$${HEALTH_PATH:-/health}"; \
-	PROMO_PATH="$${PROMO_PATH:-/promotions}"; \
-	printf "• Using KUBECONFIG=%s\n" "$$KUBECONFIG"; \
-	kubectl config current-context || true; \
+		SERVICE="$${SERVICE:-promotions-service}"; \
+		INGRESS="$${INGRESS:-promotions-ingress}"; \
+		VERIFY_PORT="$${VERIFY_PORT:-8080}"; \
+		HEALTH_PATH="$${HEALTH_PATH:-/health}"; \
+		PROMO_PATH="$${PROMO_PATH:-/api/promotions}"; \
+		printf "• Using KUBECONFIG=%s\n" "$$KUBECONFIG"; \
+		kubectl config current-context || true; \
 	printf "• Checking kubectl connectivity...\n"; \
 	kubectl cluster-info >/dev/null 2>&1 || kubectl get --raw=/version >/dev/null 2>&1 || { printf "✗ kubectl cannot reach the API server\n"; exit 1; }; \
 	printf "• Verifying pods are Ready (label=%s, ns=%s)...\n" "$$LABEL_SELECTOR" "$$NS"; \

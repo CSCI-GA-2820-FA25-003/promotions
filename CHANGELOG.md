@@ -1,5 +1,12 @@
 # CHANGELOG.md
 
+## 2025-11-20 Validate promotion date ranges
+
+### Fixed
+- Reject promotions where `start_date` is after `end_date`; API now returns 400 Bad Request with a clear message.
+- Added model and API tests to prevent invalid date ranges from being created or updated.
+- Clarified internal naming by using `promotion_type` consistently in validation logic.
+
 ## 2025-10-17 Unify Promotion Query Interfaces and Clarify Product ID Semantics
 
 ### Added

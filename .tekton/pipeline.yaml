@@ -109,7 +109,7 @@ spec:
             value: openshift-pipelines
       params:
         - name: IMAGE
-          value: image-registry.openshift-image-registry.svc:5000/$(context.pipelineRun.namespace)/$(params.IMAGE_NAME):$(params.IMAGE_TAG)
+          value: $(params.IMAGE_NAME):$(params.IMAGE_TAG)
       workspaces:
         - name: source
           workspace: pipeline-workspace
@@ -123,7 +123,7 @@ spec:
         - build
       params:
         - name: image-name
-          value: "image-registry.openshift-image-registry.svc:5000/$(context.pipelineRun.namespace)/$(params.IMAGE_NAME):$(params.IMAGE_TAG)"
+          value: "$(params.IMAGE_NAME):$(params.IMAGE_TAG)"
         - name: manifest-dir
           value: k8s
       workspaces:

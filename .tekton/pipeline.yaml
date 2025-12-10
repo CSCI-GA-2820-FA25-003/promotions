@@ -109,7 +109,7 @@ spec:
             value: openshift-pipelines
       params:
         - name: IMAGE
-          value: $(params.IMAGE_NAME):$(params.IMAGE_TAG)
+          value: $(params.IMAGE_NAME)
       workspaces:
         - name: source
           workspace: pipeline-workspace
